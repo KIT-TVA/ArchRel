@@ -31,18 +31,18 @@
       </defs>
 
       <g :transform="`translate(${pan.x}, ${pan.y}) scale(${zoom})`">
-        <!-- Interface connections (rendered below components) -->
-        <ConnectionLine
-          v-for="iface in store.interfaces"
-          :key="iface.id"
-          :iface="iface"
-        />
-
         <!-- Root-level components -->
         <ComponentNode
           v-for="comp in store.rootComponents"
           :key="comp.id"
           :comp="comp"
+        />
+
+        <!-- Interface connections (rendered above components) -->
+        <ConnectionLine
+          v-for="iface in store.interfaces"
+          :key="iface.id"
+          :iface="iface"
         />
       </g>
     </svg>

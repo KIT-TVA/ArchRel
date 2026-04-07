@@ -7,6 +7,7 @@ export const useDiagramStore = defineStore('diagram', {
         interfaces: [],       // { id, name, requiredComponentId, providedComponentId, waypoints: [{x, y}] }
         selectedId: null,
         selectedType: null,   // 'component' | 'interface'
+        scalingFactor: 1.0,
     }),
 
     getters: {
@@ -99,13 +100,8 @@ export const useDiagramStore = defineStore('diagram', {
         },
 
         addInterface(componentId) {
-            // Walk up to the root-level parent
             let rootId = componentId
             let comp = this.components.find(c => c.id === rootId)
-            while (comp && comp.parentId) {
-                rootId = comp.parentId
-                comp = this.components.find(c => c.id === rootId)
-            }
             const parent = comp
             // Create a new provided component to the right
             const providedComp = this.addComponent(
@@ -131,6 +127,63 @@ export const useDiagramStore = defineStore('diagram', {
             this.components = []
             this.interfaces = []
             this.deselect()
+        },
+
+        verifyDiagram() {
+            const errors = []
+            console.log('=== Diagram Verification Started ===')
+            console.log(`Scaling Factor: ${this.scalingFactor}`)
+            console.log(`Total Components: ${this.components.length}`)
+            console.log('')
+
+            this.components.forEach(comp => {
+                console.log(`Verifying Component: "${comp.name}" (id: ${comp.id})`)
+                console.log(`  Failure Rate: ${comp.failureRate}`)
+                console.log(`  Max Failure Rate: ${comp.maxFailureRate}`)
+
+                const children = this.components.filter(c => c.parentId === comp.id)
+                console.log(`  Children Count: ${children.length}`)
+
+                if (children.length > 0) {
+                    children.forEach(child => {
+                        console.log(`    - Child "${child.name}": failureRate=${child.failureRate}, scaled=${child.failureRate * this.scalingFactor}`)
+                    })
+                }
+
+                const childFailureRate = 1 - children.reduce((mul, c) => mul * (1 - c.failureRate * this.scalingFactor), 1)
+                console.log(`  Combined Child Failure Rate: ${childFailureRate}`)
+
+                /*PART A of system validity definition*/
+                if (comp.failureRate * this.scalingFactor < childFailureRate) {
+                    const msg = `Component "${comp.name}" has failure rate (${comp.failureRate}) less than combined child failure rate (${childFailureRate}).`
+                    errors.push(msg)
+                    console.log(` PART A FAILED: ${msg}`)
+                } else {
+                    console.log(` PART A PASSED: failureRate >= childFailureRate`)
+                }
+
+                /*PART B of system validity definition*/
+                if (comp.failureRate > comp.maxFailureRate) {
+                    const msg = `Component "${comp.name}" exceeds max failure rate (${comp.failureRate} > ${comp.maxFailureRate}).`
+                    errors.push(msg)
+                    console.log(` PART B FAILED: ${msg}`)
+                } else {
+                    console.log(` PART B PASSED: failureRate <= maxFailureRate`)
+                }
+                console.log('================================')
+            })
+
+            console.log('=== Verification Summary ===')
+            if (errors.length > 0) {
+                console.log(`Diagram Verification Failed (${errors.length} errors):\n` + errors.join('\n'))
+            } else {
+                console.log('Diagram is valid!')
+            }
+
+            return {
+                valid: errors.length === 0,
+                errors
+            }
         },
 
         updateInterface(id, updates) {
@@ -169,6 +222,7 @@ export const useDiagramStore = defineStore('diagram', {
                 version: 2,
                 components: this.components,
                 interfaces: this.interfaces,
+                scalingFactor: this.scalingFactor,
             }
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
             const url = URL.createObjectURL(blob)
@@ -184,6 +238,7 @@ export const useDiagramStore = defineStore('diagram', {
                 const data = JSON.parse(jsonText)
                 this.components = data.components || []
                 this.interfaces = data.interfaces || []
+                this.scalingFactor = data.scalingFactor ?? 1.0
                 this.deselect()
             } catch (e) {
                 console.error('Failed to load diagram:', e)
