@@ -5,6 +5,9 @@
       <DiagramCanvas ref="canvasRef" @zoom-change="canvasZoom = $event"/>
       <PropertiesPanel/>
     </div>
+
+    <!-- CFT Editor (full-screen overlay) -->
+    <CftEditorModal />
   </div>
 </template>
 
@@ -13,6 +16,7 @@ import { ref, watch } from 'vue'
 import AppToolbar from './components/AppToolbar.vue'
 import DiagramCanvas from './components/DiagramCanvas.vue'
 import PropertiesPanel from './components/PropertiesPanel.vue'
+import CftEditorModal from './components/cft/CftEditorModal.vue'
 
 const canvasRef = ref(null)
 const canvasZoom = ref(1)

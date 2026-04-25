@@ -207,8 +207,8 @@ function onDragMove(e) {
   const dy = (e.clientY - dragStart.my) / zoom
 
   if (dragStart.type === 'move') {
-    let newX = dragStart.ox + dx
-    let newY = dragStart.oy + dy
+    let newX = Math.round((dragStart.ox + dx) / 10) * 10
+    let newY = Math.round((dragStart.oy + dy) / 10) * 10
     const clamped = clampToParent(newX, newY, props.comp.width, props.comp.height)
     const actualDx = clamped.x - props.comp.x
     const actualDy = clamped.y - props.comp.y
@@ -223,10 +223,10 @@ function onDragMove(e) {
     let { ox, oy, ow, oh } = dragStart
     let nx = ox, ny = oy, nw = ow, nh = oh
     const MIN = 80
-    if (dir.includes('e')) nw = Math.max(MIN, ow + dx)
-    if (dir.includes('s')) nh = Math.max(MIN, oh + dy)
-    if (dir.includes('w')) { nw = Math.max(MIN, ow - dx); nx = ox + ow - nw }
-    if (dir.includes('n')) { nh = Math.max(MIN, oh - dy); ny = oy + oh - nh }
+    if (dir.includes('e')) nw = Math.max(MIN, Math.round((ow + dx) / 10) * 10)
+    if (dir.includes('s')) nh = Math.max(MIN, Math.round((oh + dy) / 10) * 10)
+    if (dir.includes('w')) { nw = Math.max(MIN, Math.round((ow - dx) / 10) * 10); nx = Math.round((ox + ow - nw) / 10) * 10 }
+    if (dir.includes('n')) { nh = Math.max(MIN, Math.round((oh - dy) / 10) * 10); ny = Math.round((oy + oh - nh) / 10) * 10 }
     
     // If inside a parent, clamp resize too
     if (props.parentBounds) {

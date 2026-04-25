@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
+import { useCftStore } from './cft.js'
 
 export const useDiagramStore = defineStore('diagram', {
     state: () => ({
@@ -96,6 +97,9 @@ export const useDiagramStore = defineStore('diagram', {
             children.forEach(c => this.removeComponent(c.id))
             // Remove component
             this.components = this.components.filter(c => c.id !== id)
+            // Clean up associated CFT data
+            const cftStore = useCftStore()
+            cftStore.removeCft(id)
             if (this.selectedId === id) this.deselect()
         },
 
@@ -223,6 +227,7 @@ export const useDiagramStore = defineStore('diagram', {
                 components: this.components,
                 interfaces: this.interfaces,
                 scalingFactor: this.scalingFactor,
+                cfts: useCftStore().cfts,
             }
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
             const url = URL.createObjectURL(blob)
@@ -239,6 +244,9 @@ export const useDiagramStore = defineStore('diagram', {
                 this.components = data.components || []
                 this.interfaces = data.interfaces || []
                 this.scalingFactor = data.scalingFactor ?? 1.0
+                // Load CFT data
+                const cftStore = useCftStore()
+                cftStore.cfts = data.cfts || {}
                 this.deselect()
             } catch (e) {
                 console.error('Failed to load diagram:', e)

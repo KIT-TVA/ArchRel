@@ -95,6 +95,18 @@
           </div>
         </div>
 
+        <div class="p-4 border-t border-panel-border">
+          <button class="cft-btn w-full" @click="openCftEditor">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+              <rect x="2" y="2" width="16" height="16" rx="3" stroke="currentColor" stroke-width="1.3" stroke-dasharray="4 2"/>
+              <rect x="7" y="5" width="6" height="4" rx="1" stroke="currentColor" stroke-width="1"/>
+              <line x1="10" y1="9" x2="10" y2="11" stroke="currentColor" stroke-width="1"/>
+              <circle cx="10" cy="13" r="1.5" stroke="currentColor" stroke-width="1"/>
+            </svg>
+            Edit Fault Tree
+          </button>
+        </div>
+
         <div class="mt-auto p-4 border-t border-panel-border">
           <button id="prop-delete" class="danger-btn w-full" @click="deleteSelected">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -152,8 +164,10 @@
 <script setup>
 import { computed } from 'vue'
 import { useDiagramStore } from '../stores/diagram.js'
+import { useCftStore } from '../stores/cft.js'
 
 const store = useDiagramStore()
+const cftStore = useCftStore()
 
 const hasSelection = computed(() => !!store.selectedId)
 const selectedComp = computed(() => store.selectedComponent)
@@ -182,6 +196,11 @@ function updateField(field, val) {
 }
 function updateIfaceName(val) {
   store.updateInterface(store.selectedId, { name: val })
+}
+function openCftEditor() {
+  if (store.selectedId) {
+    cftStore.openCft(store.selectedId)
+  }
 }
 function deleteSelected() {
   store.removeComponent(store.selectedId)
@@ -275,6 +294,26 @@ function deleteIface() {
 .panel-slide-enter-to,
 .panel-slide-leave-from {
   width: 256px;
+}
+.cft-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--color-accent-muted);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.cft-btn:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
   opacity: 1;
 }
 </style>

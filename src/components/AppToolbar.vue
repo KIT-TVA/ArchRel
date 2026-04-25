@@ -309,7 +309,7 @@ const hasSelection = computed(() => !!store.selectedId)
 const canAddInterface = computed(() => store.selectedType === 'component' && !!store.selectedId)
 
 function addComponent() {
-  store.addComponent(null, 200 + Math.random() * 100, 200 + Math.random() * 100)
+  store.addComponent(null, Math.round((200 + Math.random() * 100) / 10) * 10, Math.round((200 + Math.random() * 100) / 10) * 10)
 }
 
 function addInterface() {
