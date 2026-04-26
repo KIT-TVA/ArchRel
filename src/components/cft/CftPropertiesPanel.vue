@@ -71,6 +71,27 @@
             </div>
           </div>
 
+          <div class="field-group" v-if="selectedItem.type === 'inputPort'">
+            <label class="field-label">Probability</label>
+            <input
+              class="field-input"
+              type="number"
+              step="0.001"
+              min="0"
+              max="1"
+              :value="selectedItem.probability ?? 0"
+              @input="updateNode('probability', Math.max(0, Math.min(1, +$event.target.value)))"
+              placeholder="0.0"
+            />
+          </div>
+
+          <div class="field-group" v-if="selectedItem.type === 'outputPort'">
+            <label class="field-label">Probability</label>
+            <div class="text-xs font-mono text-accent px-2 py-1.5 rounded border border-panel-border bg-canvas">
+              {{ Number(store.evaluateProbability(store.activeComponentId, selectedItem.id, 0).toFixed(4)) }}
+            </div>
+          </div>
+
           <div class="field-group">
             <label class="field-label">Position</label>
             <div class="grid grid-cols-2 gap-2">

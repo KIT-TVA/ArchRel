@@ -23,6 +23,16 @@ export const useCftStore = defineStore('cft', {
         connectMode: false,
         connectSourceId: null,
         connectSourcePort: 0,
+
+        // Cursor tooltip state
+        tooltip: {
+            visible: false,
+            x: 0,
+            y: 0,
+            name: '',
+            probability: null,
+            side: '',
+        },
     }),
 
     getters: {
@@ -94,6 +104,107 @@ export const useCftStore = defineStore('cft', {
                 default:
                     return null
             }
+        },
+
+        /**
+         * Evaluates the probability of an element in a specific CFT.
+         * Usage: store.evaluateProbability(cftId, elementId, portIndex, contextStack)
+         * contextStack: Array of { scId, cftId } representing the hierarchy path
+         */
+        evaluateProbability: (state) => (cftId, elementId, portIndex = 0, contextStack = []) => {
+            const cache = {}
+            
+            const evaluate = (currentCftId, id, portIdx, cycleCheck, stack) => {
+                const cacheKey = `${currentCftId}:${id}:${portIdx}:${stack.map(s => s.scId).join(',')}`
+                if (cache[cacheKey] !== undefined) return cache[cacheKey]
+                if (cycleCheck.has(cacheKey)) return 0
+                cycleCheck.add(cacheKey)
+                
+                let p = 0
+                const cft = state.cfts[currentCftId]
+                if (cft) {
+                    const node = cft.nodes.find(n => n.id === id)
+                    if (node) {
+                        if (node.type === 'event') {
+                            p = node.probability || 0
+                        } else if (node.type === 'inputPort') {
+                            // If we have a parent context, look up the incoming edge in that parent
+                            if (stack.length > 0) {
+                                const parent = stack[stack.length - 1]
+                                const parentCft = state.cfts[parent.cftId]
+                                if (parentCft) {
+                                    // Map this input port to its index
+                                    const inPorts = cft.nodes.filter(n => n.type === 'inputPort')
+                                    const portIdxInSc = inPorts.findIndex(n => n.id === id)
+                                    if (portIdxInSc !== -1) {
+                                        const edge = parentCft.edges.find(e => e.targetId === parent.scId && e.targetPort === portIdxInSc)
+                                        if (edge) {
+                                            // Evaluate the source in the parent context
+                                            p = evaluate(parent.cftId, edge.sourceId, edge.sourcePort, cycleCheck, stack.slice(0, -1))
+                                        } else {
+                                            p = node.probability || 0
+                                        }
+                                    } else {
+                                        p = node.probability || 0
+                                    }
+                                } else {
+                                    p = node.probability || 0
+                                }
+                            } else {
+                                p = node.probability || 0
+                            }
+                        } else if (node.type === 'outputPort') {
+                            const edge = cft.edges.find(e => e.targetId === id && e.targetPort === portIdx)
+                            if (edge) {
+                                p = evaluate(currentCftId, edge.sourceId, edge.sourcePort, cycleCheck, stack)
+                            }
+                        }
+                    } else {
+                        const gate = cft.gates.find(g => g.id === id)
+                        if (gate) {
+                            const inputs = []
+                            const inputCount = gate.inputCount ?? (gate.type === 'NOT' ? 1 : 2)
+                            for (let i = 0; i < inputCount; i++) {
+                                const edge = cft.edges.find(e => e.targetId === id && e.targetPort === i)
+                                if (edge) {
+                                    inputs.push(evaluate(currentCftId, edge.sourceId, edge.sourcePort, cycleCheck, stack))
+                                } else {
+                                    inputs.push(0)
+                                }
+                            }
+                            if (gate.type === 'AND') {
+                                p = inputs.length > 0 ? inputs.reduce((acc, val) => acc * val, 1) : 0
+                            } else if (gate.type === 'OR') {
+                                p = inputs.length > 0 ? 1 - inputs.reduce((acc, val) => acc * (1 - val), 1) : 0
+                            } else if (gate.type === 'NOT') {
+                                p = 1 - (inputs[0] || 0)
+                            } else if (gate.type === 'XOR') {
+                                const p1 = inputs[0] || 0
+                                const p2 = inputs[1] || 0
+                                p = p1 * (1 - p2) + p2 * (1 - p1)
+                            }
+                        } else {
+                            const sc = cft.subComponents.find(s => s.id === id)
+                            if (sc) {
+                                const refCft = state.cfts[sc.refComponentId]
+                                if (refCft) {
+                                    const outPorts = refCft.nodes.filter(n => n.type === 'outputPort')
+                                    if (outPorts[portIdx]) {
+                                        // Descend into the subcomponent, pushing the current component to the context stack
+                                        p = evaluate(sc.refComponentId, outPorts[portIdx].id, 0, cycleCheck, [...stack, { scId: sc.id, cftId: currentCftId }])
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                cycleCheck.delete(cacheKey)
+                cache[cacheKey] = p
+                return p
+            }
+            
+            return evaluate(cftId, elementId, portIndex, new Set(), contextStack)
         },
     },
 
@@ -180,6 +291,26 @@ export const useCftStore = defineStore('cft', {
             this.connectSourcePort = 0
         },
 
+        showTooltip(x, y, name, side, probability = null) {
+            this.tooltip = {
+                visible: true,
+                x,
+                y,
+                name,
+                side,
+                probability
+            }
+        },
+
+        hideTooltip() {
+            this.tooltip.visible = false
+        },
+
+        moveTooltip(x, y) {
+            this.tooltip.x = x
+            this.tooltip.y = y
+        },
+
         // ── Add Nodes ────────────────────────────────────────────
 
         addEvent(x = 300, y = 300) {
@@ -207,6 +338,7 @@ export const useCftStore = defineStore('cft', {
                 name: 'In',
                 x,
                 y,
+                probability: 0.0,
             }
             cft.nodes.push(node)
             this.selectNode(node.id, 'inputPort')
@@ -524,13 +656,30 @@ export const useCftStore = defineStore('cft', {
                     const inputPorts = refCft.nodes.filter(n => n.type === 'inputPort').length
                     const outputPorts = refCft.nodes.filter(n => n.type === 'outputPort').length
                     return {
-                        inputs: Math.max(1, inputPorts),
-                        outputs: Math.max(1, outputPorts),
+                        inputs: inputPorts,
+                        outputs: outputPorts,
                     }
                 }
                 default:
                     return { inputs: 1, outputs: 1 }
             }
+        },
+
+        /**
+         * Get detailed ports for a sub-component from its referenced CFT.
+         * Returns { inputs: [{id, name, index}], outputs: [{id, name, index}] }.
+         */
+        getSubComponentPorts(id) {
+            const el = this.findElement(id)
+            if (!el || el.kind !== 'subComponent') return { inputs: [], outputs: [] }
+            
+            const refCft = this.cfts[el.item.refComponentId]
+            if (!refCft) return { inputs: [], outputs: [] }
+            
+            const inputs = refCft.nodes.filter(n => n.type === 'inputPort').map((n, i) => ({ ...n, index: i }))
+            const outputs = refCft.nodes.filter(n => n.type === 'outputPort').map((n, i) => ({ ...n, index: i }))
+            
+            return { inputs, outputs }
         },
     },
 })

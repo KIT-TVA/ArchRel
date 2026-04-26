@@ -1,5 +1,11 @@
 <template>
-  <g class="cft-gate-node" @mousedown.stop="onMouseDown" @click.stop="onClick">
+  <g class="cft-gate-node" 
+    @mousedown.stop="onMouseDown" 
+    @click.stop="onClick"
+    @mouseenter="onMouseEnter"
+    @mouseleave="onMouseLeave"
+    @mousemove="onMouseMove"
+  >
     <!-- Selection highlight -->
     <rect
       v-if="isSelected"
@@ -32,13 +38,7 @@
       class="gate-symbol-text"
     >{{ gateSymbol }}</text>
 
-    <!-- Gate type label below -->
-    <text
-      :x="gate.x + gate.width / 2"
-      :y="gate.y + gate.height + 14"
-      text-anchor="middle"
-      class="gate-type-text"
-    >{{ gate.type }}</text>
+
 
     <!-- Output connection point (top center) -->
     <circle
@@ -125,6 +125,19 @@ function onClick() {
   store.selectNode(props.gate.id, 'gate')
 }
 
+function onMouseEnter(e) {
+  const prob = store.evaluateProbability(store.activeComponentId, props.gate.id, 0)
+  store.showTooltip(e.clientX + 12, e.clientY + 12, `${props.gate.type} Gate`, 'Logic', prob)
+}
+
+function onMouseLeave() {
+  store.hideTooltip()
+}
+
+function onMouseMove(e) {
+  store.moveTooltip(e.clientX + 12, e.clientY + 12)
+}
+
 function onConnPointClick(_slot, portIndex = 0) {
   if (!store.connectMode) return
   if (!store.connectSourceId) {
@@ -174,18 +187,18 @@ function onDragMove(e) {
 
   if (dragStart.type === 'move') {
     store.updateGate(props.gate.id, {
-      x: Math.round((dragStart.ox + dx) / 10) * 10,
-      y: Math.round((dragStart.oy + dy) / 10) * 10,
+      x: Math.round((dragStart.ox + dx) / 30) * 30,
+      y: Math.round((dragStart.oy + dy) / 30) * 30,
     })
   } else {
     const dir = dragStart.dir
     let { ox, oy, ow, oh } = dragStart
     let nx = ox, ny = oy, nw = ow, nh = oh
-    const MIN = 40
-    if (dir.includes('e')) nw = Math.max(MIN, Math.round((ow + dx) / 10) * 10)
-    if (dir.includes('s')) nh = Math.max(MIN, Math.round((oh + dy) / 10) * 10)
-    if (dir.includes('w')) { nw = Math.max(MIN, Math.round((ow - dx) / 10) * 10); nx = Math.round((ox + ow - nw) / 10) * 10 }
-    if (dir.includes('n')) { nh = Math.max(MIN, Math.round((oh - dy) / 10) * 10); ny = Math.round((oy + oh - nh) / 10) * 10 }
+    const MIN = 60
+    if (dir.includes('e')) nw = Math.max(MIN, Math.round((ow + dx) / 30) * 30)
+    if (dir.includes('s')) nh = Math.max(MIN, Math.round((oh + dy) / 30) * 30)
+    if (dir.includes('w')) { nw = Math.max(MIN, Math.round((ow - dx) / 30) * 30); nx = Math.round((ox + ow - nw) / 30) * 30 }
+    if (dir.includes('n')) { nh = Math.max(MIN, Math.round((oh - dy) / 30) * 30); ny = Math.round((oy + oh - nh) / 30) * 30 }
     store.updateGate(props.gate.id, { x: nx, y: ny, width: nw, height: nh })
   }
 }
@@ -212,14 +225,7 @@ function onDragEnd() {
   pointer-events: none;
   user-select: none;
 }
-.gate-type-text {
-  font-size: 10px;
-  font-weight: 500;
-  fill: var(--color-text-muted);
-  font-family: var(--font-sans);
-  pointer-events: none;
-  user-select: none;
-}
+
 .conn-point {
   cursor: crosshair;
   transition: r 0.15s;

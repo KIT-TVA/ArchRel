@@ -71,31 +71,61 @@
               class="sc-name-text"
             >{{ getSubCompName(sc) }}</text>
             <!-- Connection points (top = outputs, distributed) -->
-            <circle
-              v-for="(_, i) in getSubCompPortCount(sc).outputs"
-              :key="'out-' + i"
-              :cx="sc.x + sc.width * (i + 1) / (getSubCompPortCount(sc).outputs + 1)"
-              :cy="sc.y"
-              r="3"
-              :fill="store.connectMode ? '#198754' : '#adb5bd'"
-              :stroke="store.connectMode ? '#198754' : '#868e96'"
-              stroke-width="1"
-              class="conn-point"
-              @click.stop="onSubCompConnClick(sc, i, 'output')"
-            />
+            <g 
+              v-for="(port, i) in getSubCompPorts(sc).outputs" 
+              :key="'out-' + i" 
+              class="sc-port-group"
+              @mouseenter="showTooltip($event, sc, port, 'output')"
+              @mouseleave="hideTooltip"
+              @mousemove="moveTooltip"
+            >
+              <circle
+                :cx="sc.x + sc.width * (i + 1) / (getSubCompPorts(sc).outputs.length + 1)"
+                :cy="sc.y"
+                r="3"
+                :fill="store.connectMode ? '#198754' : '#adb5bd'"
+                :stroke="store.connectMode ? '#198754' : '#868e96'"
+                stroke-width="1"
+                class="conn-point"
+              />
+              <!-- Hit area for hover/click -->
+              <circle
+                :cx="sc.x + sc.width * (i + 1) / (getSubCompPorts(sc).outputs.length + 1)"
+                :cy="sc.y"
+                r="8"
+                fill="transparent"
+                style="cursor: crosshair"
+                @click.stop="onSubCompConnClick(sc, port.index, 'output')"
+              />
+            </g>
             <!-- Connection points (bottom = inputs, distributed) -->
-            <circle
-              v-for="(_, i) in getSubCompPortCount(sc).inputs"
-              :key="'in-' + i"
-              :cx="sc.x + sc.width * (i + 1) / (getSubCompPortCount(sc).inputs + 1)"
-              :cy="sc.y + sc.height"
-              r="3"
-              :fill="store.connectMode ? '#198754' : '#adb5bd'"
-              :stroke="store.connectMode ? '#198754' : '#868e96'"
-              stroke-width="1"
-              class="conn-point"
-              @click.stop="onSubCompConnClick(sc, i, 'input')"
-            />
+            <g 
+              v-for="(port, i) in getSubCompPorts(sc).inputs" 
+              :key="'in-' + i" 
+              class="sc-port-group"
+              @mouseenter="showTooltip($event, sc, port, 'input')"
+              @mouseleave="hideTooltip"
+              @mousemove="moveTooltip"
+            >
+              <circle
+                :cx="sc.x + sc.width * (i + 1) / (getSubCompPorts(sc).inputs.length + 1)"
+                :cy="sc.y + sc.height"
+                r="3"
+                :fill="store.connectMode ? '#198754' : '#adb5bd'"
+                :stroke="store.connectMode ? '#198754' : '#868e96'"
+                stroke-width="1"
+                class="conn-point"
+              />
+              <!-- Hit area for hover/click -->
+              <circle
+                :cx="sc.x + sc.width * (i + 1) / (getSubCompPorts(sc).inputs.length + 1)"
+                :cy="sc.y + sc.height"
+                r="8"
+                fill="transparent"
+                style="cursor: crosshair"
+                @click.stop="onSubCompConnClick(sc, port.index, 'input')"
+              />
+            </g>
           </g>
         </g>
 
@@ -160,6 +190,20 @@
         <button class="ml-2 text-text-muted hover:text-danger text-xs" @click="store.cancelConnect()">✕</button>
       </div>
     </transition>
+
+    <!-- Cursor Tooltip -->
+    <div
+      v-if="store.tooltip.visible"
+      class="cft-tooltip fixed pointer-events-none z-[9999] bg-panel border border-panel-border rounded shadow-xl px-2 py-1.5 min-w-[130px]"
+      :style="{ left: store.tooltip.x + 'px', top: store.tooltip.y + 'px' }"
+    >
+      <div class="text-[10px] text-text-muted font-bold uppercase tracking-wider mb-0.5">{{ store.tooltip.side }} Port</div>
+      <div class="text-xs font-semibold text-text-primary">{{ store.tooltip.name }}</div>
+      <div v-if="store.tooltip.probability !== null" class="mt-1 pt-1 border-t border-panel-border flex items-center justify-between gap-4">
+        <span class="text-[10px] text-text-muted uppercase">Prob:</span>
+        <span class="text-[10px] font-mono text-accent font-bold">{{ formatProb(store.tooltip.probability) }}</span>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -198,8 +242,29 @@ function getSubCompName(sc) {
   return comp ? comp.name : sc.name
 }
 
-function getSubCompPortCount(sc) {
-  return store.getPortCount(sc.id)
+function getSubCompPorts(sc) {
+  return store.getSubComponentPorts(sc.id)
+}
+
+function formatProb(p) {
+  if (p === 0) return '0'
+  if (p < 0.0001) return p.toExponential(2)
+  return p.toFixed(4)
+}
+
+function showTooltip(e, sc, port, side) {
+  // Pass the current component as the parent context for hierarchical evaluation
+  const context = [{ scId: sc.id, cftId: store.activeComponentId }]
+  const prob = store.evaluateProbability(sc.refComponentId, port.id, 0, context)
+  store.showTooltip(e.clientX + 12, e.clientY + 12, port.name, side, prob)
+}
+
+function hideTooltip() {
+  store.hideTooltip()
+}
+
+function moveTooltip(e) {
+  store.moveTooltip(e.clientX + 12, e.clientY + 12)
 }
 
 function onCanvasClick(e) {
@@ -258,10 +323,7 @@ function resetZoom() { zoom.value = 1; pan.x = 0; pan.y = 0; updateGlobalZoom() 
 // Sub-component drag
 let scDragStart = null
 function onSubCompClick(sc) {
-  if (store.connectMode) {
-    onSubCompConnClick(sc)
-    return
-  }
+  if (store.connectMode) return
   store.selectNode(sc.id, 'subComponent')
 }
 function onSubCompConnClick(sc, portIndex = 0, side = 'input') {
@@ -293,8 +355,8 @@ function onSubCompDragMove(e) {
   const sc = store.activeSubComponents.find(s => s.id === store.selectedNodeId)
   if (sc) {
     store.updateSubComponent(sc.id, { 
-      x: Math.round((scDragStart.ox + dx) / 10) * 10, 
-      y: Math.round((scDragStart.oy + dy) / 10) * 10 
+      x: Math.round((scDragStart.ox + dx) / 30) * 30, 
+      y: Math.round((scDragStart.oy + dy) / 30) * 30 
     })
   }
 }

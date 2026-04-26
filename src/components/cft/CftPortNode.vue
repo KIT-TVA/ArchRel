@@ -1,5 +1,11 @@
 <template>
-  <g class="cft-port-node" @mousedown.stop="onMouseDown" @click.stop="onClick">
+  <g class="cft-port-node" 
+    @mousedown.stop="onMouseDown" 
+    @click.stop="onClick"
+    @mouseenter="onMouseEnter"
+    @mouseleave="onMouseLeave"
+    @mousemove="onMouseMove"
+  >
     <!-- Selection ring -->
     <rect
       v-if="isSelected"
@@ -24,11 +30,20 @@
 
     <!-- Name label -->
     <text
-      :x="node.x + (isInput ? 0 : 0)"
-      :y="isInput ? node.y + 26 : node.y - 20"
+      :x="node.x"
+      :y="isInput ? node.y + 26 : node.y - 28"
       text-anchor="middle"
       class="port-name-text"
     >{{ node.name }}</text>
+
+    <!-- Probability label (output only, below name) -->
+    <text
+      v-if="!isInput"
+      :x="node.x"
+      :y="node.y - 14"
+      text-anchor="middle"
+      class="port-prob-text"
+    >{{ probabilityText }}</text>
 
     <!-- Connection point -->
     <circle
@@ -57,6 +72,11 @@ const isSelected = computed(() => store.selectedNodeId === props.node.id)
 const isInput = computed(() => props.node.type === 'inputPort')
 const connectMode = computed(() => store.connectMode)
 
+const probabilityText = computed(() => {
+  const p = store.evaluateProbability(store.activeComponentId, props.node.id, 0)
+  return `P: ${Number(p.toFixed(4))}`
+})
+
 // Solid triangle: input points DOWN (inward), output points UP (outward)
 const trianglePoints = computed(() => {
   const { x, y } = props.node
@@ -81,12 +101,25 @@ function onClick() {
   store.selectNode(props.node.id, props.node.type)
 }
 
+function onMouseEnter(e) {
+  const p = store.evaluateProbability(store.activeComponentId, props.node.id, 0)
+  store.showTooltip(e.clientX + 12, e.clientY + 12, props.node.name, isInput.value ? 'Input' : 'Output', p)
+}
+
+function onMouseLeave() {
+  store.hideTooltip()
+}
+
+function onMouseMove(e) {
+  store.moveTooltip(e.clientX + 12, e.clientY + 12)
+}
+
 function onConnPointClick() {
   if (!store.connectMode) return
   if (!store.connectSourceId) {
     store.setConnectSource(props.node.id)
   } else {
-    store.addEdge(store.connectSourceId, props.node.id)
+    store.addEdge(store.connectSourceId, props.node.id, store.connectSourcePort, 0)
   }
 }
 
@@ -110,8 +143,8 @@ function onDragMove(e) {
   const dx = (e.clientX - dragStart.mx) / zoom
   const dy = (e.clientY - dragStart.my) / zoom
   store.updateNode(props.node.id, {
-    x: Math.round((dragStart.ox + dx) / 10) * 10,
-    y: Math.round((dragStart.oy + dy) / 10) * 10,
+    x: Math.round((dragStart.ox + dx) / 30) * 30,
+    y: Math.round((dragStart.oy + dy) / 30) * 30,
   })
 }
 
@@ -134,6 +167,14 @@ function onDragEnd() {
   font-weight: 600;
   fill: var(--color-text-primary);
   font-family: var(--font-sans);
+  pointer-events: none;
+  user-select: none;
+}
+.port-prob-text {
+  font-size: 10px;
+  font-weight: 500;
+  fill: var(--color-accent);
+  font-family: var(--font-mono, monospace);
   pointer-events: none;
   user-select: none;
 }

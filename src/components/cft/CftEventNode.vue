@@ -1,5 +1,11 @@
 <template>
-  <g class="cft-event-node" @mousedown.stop="onMouseDown" @click.stop="onClick">
+  <g class="cft-event-node" 
+    @mousedown.stop="onMouseDown" 
+    @click.stop="onClick"
+    @mouseenter="onMouseEnter"
+    @mouseleave="onMouseLeave"
+    @mousemove="onMouseMove"
+  >
     <!-- Selection ring -->
     <circle
       v-if="isSelected"
@@ -80,12 +86,24 @@ function onClick() {
   store.selectNode(props.node.id, 'event')
 }
 
+function onMouseEnter(e) {
+  store.showTooltip(e.clientX + 12, e.clientY + 12, props.node.name, 'Event', props.node.probability)
+}
+
+function onMouseLeave() {
+  store.hideTooltip()
+}
+
+function onMouseMove(e) {
+  store.moveTooltip(e.clientX + 12, e.clientY + 12)
+}
+
 function onConnPointClick() {
   if (!store.connectMode) return
   if (!store.connectSourceId) {
     store.setConnectSource(props.node.id)
   } else {
-    store.addEdge(store.connectSourceId, props.node.id)
+    store.addEdge(store.connectSourceId, props.node.id, store.connectSourcePort, 0)
   }
 }
 
@@ -109,8 +127,8 @@ function onDragMove(e) {
   const dx = (e.clientX - dragStart.mx) / zoom
   const dy = (e.clientY - dragStart.my) / zoom
   store.updateNode(props.node.id, {
-    x: Math.round((dragStart.ox + dx) / 10) * 10,
-    y: Math.round((dragStart.oy + dy) / 10) * 10
+    x: Math.round((dragStart.ox + dx) / 30) * 30,
+    y: Math.round((dragStart.oy + dy) / 30) * 30
   })
 }
 
