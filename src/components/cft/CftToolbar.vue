@@ -141,6 +141,8 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useCftStore } from '../../stores/cft.js'
 import { useDiagramStore } from '../../stores/diagram.js'
 
+const emit = defineEmits(['close'])
+
 const store = useCftStore()
 const diagramStore = useDiagramStore()
 
@@ -194,7 +196,7 @@ function deleteSelected() {
 }
 
 function closeCft() {
-  store.closeCft()
+  emit('close')
 }
 
 // Close sub-menu when clicking outside

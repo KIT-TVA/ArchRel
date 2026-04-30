@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
+import { useDiagramStore } from './diagram.js'
 
 /**
  * CFT Store — manages Component Fault Tree data for all components.
@@ -103,6 +104,36 @@ export const useCftStore = defineStore('cft', {
                     return cft.subComponents.find(sc => sc.id === state.selectedNodeId) || null
                 default:
                     return null
+            }
+        },
+
+        /**
+         * Validates the CFT for a given component against its declared failureRate.
+         * Returns { valid: bool, errors: string[] }.
+         * Passes if: no output ports, no failureRate set, or all output port probabilities ≤ failureRate.
+         */
+        validateAgainstComponent(state) {
+            return (componentId) => {
+                const diagramStore = useDiagramStore()
+                const component = diagramStore.components.find(c => c.id === componentId)
+                if (!component || !component.failureRate) return { valid: true, errors: [] }
+
+                const cft = state.cfts[componentId]
+                if (!cft) return { valid: true, errors: [] }
+
+                const outputPorts = cft.nodes.filter(n => n.type === 'outputPort')
+                if (outputPorts.length === 0) return { valid: true, errors: [] }
+
+                const errors = []
+                for (const port of outputPorts) {
+                    const p = this.evaluateProbability(componentId, port.id, 0, [])
+                    if (p > component.failureRate) {
+                        errors.push(
+                            `Output port "${port.name}": computed probability ${p.toFixed(4)} exceeds component failure rate ${component.failureRate.toFixed(4)}`
+                        )
+                    }
+                }
+                return { valid: errors.length === 0, errors }
             }
         },
 
