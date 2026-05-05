@@ -26,7 +26,7 @@
             <input
               class="field-input"
               type="number"
-              step="0.001"
+              step="any"
               min="0"
               max="1"
               :value="selectedItem.probability ?? 0"
@@ -76,7 +76,7 @@
             <input
               class="field-input"
               type="number"
-              step="0.001"
+              step="any"
               min="0"
               max="1"
               :value="selectedItem.probability ?? 0"

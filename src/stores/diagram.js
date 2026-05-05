@@ -8,7 +8,8 @@ export const useDiagramStore = defineStore('diagram', {
         interfaces: [],       // { id, name, requiredComponentId, providedComponentId, waypoints: [{x, y}] }
         selectedId: null,
         selectedType: null,   // 'component' | 'interface'
-        scalingFactor: 1.0,
+        systemFailureRate: 0,
+        lastRuleCheckResult: null,
     }),
 
     getters: {
@@ -45,6 +46,7 @@ export const useDiagramStore = defineStore('diagram', {
                 maxFailureRate: 0,
             }
             this.components.push(comp)
+            this.calculateMaxFailureRate(comp.id)
             this.selectItem(comp.id, 'component')
             return comp
         },
@@ -77,6 +79,14 @@ export const useDiagramStore = defineStore('diagram', {
                 width: 160,
                 height: 100,
             })
+
+            // Recalculate maxF for parent and all its children — n changed so every sibling is affected
+            this.calculateMaxFailureRate(parentId)
+            this.components
+                .filter(c => c.parentId === parentId)
+                .forEach(c => this.calculateMaxFailureRate(c.id))
+            this.lastRuleCheckResult = this.checkCftConstraints()
+
             return child
         },
 
@@ -124,6 +134,11 @@ export const useDiagramStore = defineStore('diagram', {
             }
             this.interfaces.push(iface)
             this.selectItem(iface.id, 'interface')
+
+            this.calculateMaxFailureRate(rootId)
+            this.calculateMaxFailureRate(providedComp.id)
+            this.lastRuleCheckResult = this.checkCftConstraints()
+
             return iface
         },
 
@@ -136,7 +151,6 @@ export const useDiagramStore = defineStore('diagram', {
         verifyDiagram() {
             const errors = []
             console.log('=== Diagram Verification Started ===')
-            console.log(`Scaling Factor: ${this.scalingFactor}`)
             console.log(`Total Components: ${this.components.length}`)
             console.log('')
 
@@ -150,15 +164,15 @@ export const useDiagramStore = defineStore('diagram', {
 
                 if (children.length > 0) {
                     children.forEach(child => {
-                        console.log(`    - Child "${child.name}": failureRate=${child.failureRate}, scaled=${child.failureRate * this.scalingFactor}`)
+                        console.log(`    - Child "${child.name}": failureRate=${child.failureRate}`)
                     })
                 }
 
-                const childFailureRate = 1 - children.reduce((mul, c) => mul * (1 - c.failureRate * this.scalingFactor), 1)
+                const childFailureRate = 1 - children.reduce((mul, c) => mul * (1 - c.failureRate), 1)
                 console.log(`  Combined Child Failure Rate: ${childFailureRate}`)
 
                 /*PART A of system validity definition*/
-                if (comp.failureRate * this.scalingFactor < childFailureRate) {
+                if (comp.failureRate < childFailureRate) {
                     const msg = `Component "${comp.name}" has failure rate (${comp.failureRate}) less than combined child failure rate (${childFailureRate}).`
                     errors.push(msg)
                     console.log(` PART A FAILED: ${msg}`)
@@ -188,6 +202,74 @@ export const useDiagramStore = defineStore('diagram', {
                 valid: errors.length === 0,
                 errors
             }
+        },
+
+        calculateMaxFailureRate(componentId) {
+            const component = this.components.find(c => c.id === componentId)
+            if (!component) return
+
+            const interfaces = this.interfaces.filter(
+                i => i.requiredComponentId === componentId || i.providedComponentId === componentId
+            )
+            const systemF = this.systemFailureRate
+            const parent = component.parentId
+                ? this.components.find(c => c.id === component.parentId)
+                : null
+
+            let maxF
+
+            if (!parent && interfaces.length === 0) {
+                // Root component with no interfaces: maxF is the system failure rate.
+                maxF = systemF
+            } else if (parent && interfaces.length === 0) {
+                // Case 1 — standard subcomponent:
+                // maxf = 1 - (1 - P(F_parent))^(1/n)  where n = sibling count including self
+                const n = this.components.filter(c => c.parentId === parent.id).length
+                maxF = 1 - Math.pow(1 - parent.failureRate, 1 / n)
+            } else {
+                // Case 2 — component connected via interface:
+                // maxf = 1 - (1 - parentBudget) / (1 - P(F_sibling))
+                const iface = interfaces[0]
+                const siblingId = iface.requiredComponentId === componentId
+                    ? iface.providedComponentId
+                    : iface.requiredComponentId
+                const sibling = this.components.find(c => c.id === siblingId)
+                const denom = sibling ? 1 - sibling.failureRate : 0
+                if (!sibling || denom <= 0) {
+                    maxF = 0
+                } else {
+                    const parentBudget = parent ? parent.maxFailureRate : systemF
+                    maxF = 1 - (1 - parentBudget) / denom
+                }
+            }
+
+            this.updateComponent(componentId, { maxFailureRate: Math.max(0, Math.min(1, maxF)) })
+        },
+
+        recalculateAllMaxFailureRates() {
+            this.components.forEach(comp => this.calculateMaxFailureRate(comp.id))
+        },
+
+        checkCftConstraints() {
+            const cftStore = useCftStore()
+            const errors = []
+
+            this.components.forEach(comp => {
+                const cft = cftStore.cfts[comp.id]
+                if (!cft || !comp.maxFailureRate) return
+
+                const outputPorts = cft.nodes.filter(n => n.type === 'outputPort')
+                for (const port of outputPorts) {
+                    const p = cftStore.evaluateProbability(comp.id, port.id, 0, [])
+                    if (p > comp.maxFailureRate) {
+                        errors.push(
+                            `Component "${comp.name}": CFT output "${port.name}" probability (${p}) exceeds maxFailureRate (${comp.maxFailureRate}).`
+                        )
+                    }
+                }
+            })
+
+            return { valid: errors.length === 0, errors }
         },
 
         updateInterface(id, updates) {
@@ -223,10 +305,10 @@ export const useDiagramStore = defineStore('diagram', {
 
         saveDiagram() {
             const data = {
-                version: 2,
+                version: 3,
                 components: this.components,
                 interfaces: this.interfaces,
-                scalingFactor: this.scalingFactor,
+                systemFailureRate: this.systemFailureRate,
                 cfts: useCftStore().cfts,
             }
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
@@ -243,7 +325,7 @@ export const useDiagramStore = defineStore('diagram', {
                 const data = JSON.parse(jsonText)
                 this.components = data.components || []
                 this.interfaces = data.interfaces || []
-                this.scalingFactor = data.scalingFactor ?? 1.0
+                this.systemFailureRate = data.systemFailureRate ?? 0
                 // Load CFT data
                 const cftStore = useCftStore()
                 cftStore.cfts = data.cfts || {}

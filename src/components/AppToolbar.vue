@@ -225,6 +225,38 @@
     </div>
   </Teleport>
 
+  <!-- Rule Check Warning modal -->
+  <Teleport to="body">
+    <div v-if="showRuleCheckModal && store.lastRuleCheckResult?.errors?.length"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      @click.self="showRuleCheckModal = false; store.lastRuleCheckResult = null"
+      @keydown.escape="showRuleCheckModal = false; store.lastRuleCheckResult = null">
+      <div class="bg-panel border border-panel-border rounded-2xl shadow-2xl w-[500px] max-h-[80vh] flex flex-col"
+        style="box-shadow: 0 24px 64px rgba(0,0,0,0.5)">
+        <!-- Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-panel-border">
+          <div class="flex items-center gap-3 text-danger">
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+              <path d="M8 1v14M1 8h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                transform="rotate(45 8 8)" />
+            </svg>
+            <span class="font-semibold text-text-primary text-base">Rule Check Warning</span>
+          </div>
+          <button
+            class="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-hover transition-all cursor-pointer text-lg leading-none"
+            @click="showRuleCheckModal = false; store.lastRuleCheckResult = null">✕</button>
+        </div>
+        <!-- Content -->
+        <div class="flex-1 overflow-auto p-6">
+          <p class="text-[13px] text-text-secondary mb-4">One or more components have CFT probabilities exceeding their allowed maxFailureRate.</p>
+          <ul class="list-disc pl-5 text-[13px] text-danger space-y-2">
+            <li v-for="(error, i) in store.lastRuleCheckResult.errors" :key="i">{{ error }}</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
   <!-- Settings modal -->
   <Teleport to="body">
     <div v-if="showSettingsModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" @click.self="showSettingsModal = false" @keydown.escape="showSettingsModal = false">
@@ -247,32 +279,30 @@
                 <div class="rounded-2xl border border-panel-border bg-canvas p-6">
                   <div class="flex items-center justify-between gap-3">
                     <div>
-                      <p class="text-sm font-semibold text-text-primary">Scaling Factor</p>
-                      <p class="text-xs text-text-muted">Adjust the global size multiplier used by diagram elements.</p>
+                      <p class="text-sm font-semibold text-text-primary">System Failure Rate (f)</p>
+                      <p class="text-xs text-text-muted">The global system-level failure rate used for maxF calculations.</p>
                     </div>
-                    <span class="text-sm font-semibold text-text-primary">{{ scalingLabel }}×</span>
+                    <span class="text-sm font-semibold text-text-primary font-mono">{{ store.systemFailureRate }}</span>
                   </div>
-
                   <div class="mt-4">
                     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <input
                         type="number"
-                        min="0.25"
-                        max="2"
-                        step="0.05"
-                        v-model.number="store.scalingFactor"
+                        min="0"
+                        max="1"
+                        step="any"
+                        v-model.number="store.systemFailureRate"
                         class="settings-number flex-1"
+                        @change="store.recalculateAllMaxFailureRates()"
                       />
                       <button class="toolbar-btn border border-panel-border bg-surface hover:bg-surface-hover px-4"
-                        @click="resetScalingFactor">
+                        @click="store.systemFailureRate = 0; store.recalculateAllMaxFailureRates()">
                         Reset
                       </button>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
         </div>
 
         <!-- Footer actions -->
@@ -281,11 +311,13 @@
             <span>Done</span>
           </button>
         </div>
+      </div>
+    </div>
   </Teleport>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useDiagramStore } from '../stores/diagram.js'
 
 const store = useDiagramStore()
@@ -296,10 +328,14 @@ const copied = ref(false)
 const verificationResult = ref(null)
 const showErrorModal = ref(false)
 const showSettingsModal = ref(false)
+const showRuleCheckModal = ref(false)
 
 const isVerifySuccess = computed(() => verificationResult.value?.valid === true)
 const isVerifyDanger = computed(() => verificationResult.value?.valid === false)
-const scalingLabel = computed(() => store.scalingFactor.toFixed(2))
+
+watch(() => store.lastRuleCheckResult, (val) => {
+  if (val && !val.valid) showRuleCheckModal.value = true
+})
 
 const props = defineProps({
   zoom: { type: Number, default: 1 },
@@ -324,10 +360,6 @@ function addSubcomponent() {
 
 function openSettings() {
   showSettingsModal.value = true
-}
-
-function resetScalingFactor() {
-  store.scalingFactor = 1.0
 }
 
 function clearAll() {

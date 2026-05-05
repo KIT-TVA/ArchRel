@@ -38,11 +38,36 @@
 
     <!-- Name label below -->
     <text
+      v-if="!isEditing"
       :x="node.x"
       :y="node.y + 30"
       text-anchor="middle"
       class="event-name-text"
+      @dblclick.stop="startEdit"
     >{{ node.name }}</text>
+
+    <!-- Inline name editor -->
+    <foreignObject
+      v-if="isEditing"
+      :x="node.x - 50"
+      :y="node.y + 20"
+      width="100"
+      height="20"
+    >
+      <input
+        ref="editInput"
+        type="text"
+        :value="editValue"
+        class="event-name-input"
+        @input="editValue = $event.target.value"
+        @blur="commitEdit"
+        @keydown.enter.stop="commitEdit"
+        @keydown.escape.stop="cancelEdit"
+        @mousedown.stop
+        @click.stop
+        @dblclick.stop
+      />
+    </foreignObject>
 
     <!-- Connection point indicator (top) -->
     <circle
@@ -58,7 +83,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, nextTick } from 'vue'
 import { useCftStore } from '../../stores/cft.js'
 
 const props = defineProps({
@@ -68,6 +93,10 @@ const props = defineProps({
 const store = useCftStore()
 const isSelected = computed(() => store.selectedNodeId === props.node.id)
 const connectMode = computed(() => store.connectMode)
+
+const isEditing = ref(false)
+const editValue = ref('')
+const editInput = ref(null)
 
 const probLabel = computed(() => {
   const p = props.node.probability ?? 0
@@ -137,6 +166,27 @@ function onDragEnd() {
   window.removeEventListener('mousemove', onDragMove)
   window.removeEventListener('mouseup', onDragEnd)
 }
+
+function startEdit() {
+  if (store.connectMode) return
+  editValue.value = props.node.name
+  isEditing.value = true
+  nextTick(() => {
+    editInput.value?.focus()
+    editInput.value?.select()
+  })
+}
+
+function commitEdit() {
+  if (!isEditing.value) return
+  const trimmed = editValue.value.trim()
+  store.updateNode(props.node.id, { name: trimmed || props.node.name })
+  isEditing.value = false
+}
+
+function cancelEdit() {
+  isEditing.value = false
+}
 </script>
 
 <style scoped>
@@ -159,8 +209,23 @@ function onDragEnd() {
   font-weight: 500;
   fill: var(--color-text-primary);
   font-family: var(--font-sans);
-  pointer-events: none;
   user-select: none;
+  cursor: text;
+}
+.event-name-input {
+  width: 100%;
+  height: 100%;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  text-align: center;
+  background: #ffffff;
+  border: 1px solid #495057;
+  border-radius: 2px;
+  outline: none;
+  color: var(--color-text-primary);
+  padding: 0 2px;
+  box-sizing: border-box;
 }
 .conn-point {
   cursor: crosshair;

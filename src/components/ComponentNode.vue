@@ -81,7 +81,7 @@
         :y="comp.y + comp.height - 12"
         text-anchor="middle"
         class="failure-text"
-      >f = {{ comp.failureRate || 0 }} / {{ comp.maxFailureRate || 0 }}</text>
+      >f = {{ +( comp.failureRate || 0).toPrecision(4) }} / {{ +(comp.maxFailureRate || 0).toPrecision(4) }}</text>
     </g>
 
     <!-- Children sub-components (rendered inside) -->

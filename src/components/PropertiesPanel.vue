@@ -54,15 +54,18 @@
             <label class="field-label">Failure Rate</label>
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <label class="text-[11px] text-text-muted mb-1 block font-mono">f</label>
+                <label class="text-[11px] text-text-muted mb-1 block font-mono">f{{ hasCftOutput ? ' (CFT)' : '' }}</label>
                 <input
                   id="prop-failure-rate"
                   class="field-input"
                   type="number"
-                  step="0.001"
+                  step="any"
                   min="0"
+                  max="1"
                   :value="selectedComp.failureRate ?? 0"
-                  @input="updateField('failureRate', Math.max(0, +$event.target.value))"
+                  :readonly="hasCftOutput"
+                  :style="hasCftOutput ? 'opacity:0.6;cursor:not-allowed' : ''"
+                  @input="!hasCftOutput && updateField('failureRate', Math.min(1, Math.max(0, +$event.target.value)))"
                   placeholder="0"
                 />
               </div>
@@ -72,10 +75,12 @@
                   id="prop-max-failure-rate"
                   class="field-input"
                   type="number"
-                  step="0.001"
+                  step="any"
                   min="0"
+                  max="1"
                   :value="selectedComp.maxFailureRate ?? 0"
-                  @input="updateField('maxFailureRate', Math.max(0, +$event.target.value))"
+                  readonly
+                  style="opacity: 0.6; cursor: not-allowed;"
                   placeholder="0"
                 />
               </div>
@@ -176,6 +181,12 @@ const selectedIface = computed(() => store.selectedInterface)
 const compInterfaces = computed(() =>
   selectedComp.value ? store.interfacesOf(selectedComp.value.id) : []
 )
+
+const hasCftOutput = computed(() => {
+  if (!selectedComp.value) return false
+  const cft = cftStore.cfts[selectedComp.value.id]
+  return !!(cft && cft.nodes.some(n => n.type === 'outputPort'))
+})
 
 const reqCompName = computed(() => {
   if (!selectedIface.value) return '—'

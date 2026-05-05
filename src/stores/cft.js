@@ -107,35 +107,6 @@ export const useCftStore = defineStore('cft', {
             }
         },
 
-        /**
-         * Validates the CFT for a given component against its declared failureRate.
-         * Returns { valid: bool, errors: string[] }.
-         * Passes if: no output ports, no failureRate set, or all output port probabilities ≤ failureRate.
-         */
-        validateAgainstComponent(state) {
-            return (componentId) => {
-                const diagramStore = useDiagramStore()
-                const component = diagramStore.components.find(c => c.id === componentId)
-                if (!component || !component.failureRate) return { valid: true, errors: [] }
-
-                const cft = state.cfts[componentId]
-                if (!cft) return { valid: true, errors: [] }
-
-                const outputPorts = cft.nodes.filter(n => n.type === 'outputPort')
-                if (outputPorts.length === 0) return { valid: true, errors: [] }
-
-                const errors = []
-                for (const port of outputPorts) {
-                    const p = this.evaluateProbability(componentId, port.id, 0, [])
-                    if (p > component.failureRate) {
-                        errors.push(
-                            `Output port "${port.name}": computed probability ${p.toFixed(4)} exceeds component failure rate ${component.failureRate.toFixed(4)}`
-                        )
-                    }
-                }
-                return { valid: errors.length === 0, errors }
-            }
-        },
 
         /**
          * Evaluates the probability of an element in a specific CFT.
@@ -241,6 +212,48 @@ export const useCftStore = defineStore('cft', {
 
     actions: {
         // ── Lifecycle ────────────────────────────────────────────
+
+        /**
+         * Syncs the component's failureRate from its CFT output, then checks it
+         * against maxFailureRate. Always updates failureRate regardless of validity.
+         * Returns { valid: bool, errors: string[] }.
+         * Skips validation (returns valid) if there is no CFT or no output ports.
+         */
+        validateAgainstComponent(componentId) {
+            const diagramStore = useDiagramStore()
+            const component = diagramStore.components.find(c => c.id === componentId)
+            if (!component) return { valid: true, errors: [] }
+
+            const cft = this.cfts[componentId]
+            if (!cft) return { valid: true, errors: [] }
+
+            const outputPorts = cft.nodes.filter(n => n.type === 'outputPort')
+            if (outputPorts.length === 0) return { valid: true, errors: [] }
+
+            // Compute CFT output probability across all output ports
+            let computedFailureRate = 0
+            for (const port of outputPorts) {
+                const p = this.evaluateProbability(componentId, port.id, 0, [])
+                computedFailureRate = Math.max(computedFailureRate, p)
+            }
+
+            // Always sync failureRate from CFT so it reflects what the fault tree says
+            diagramStore.updateComponent(componentId, { failureRate: computedFailureRate })
+
+            // Only check against maxFailureRate if it has been computed (non-zero)
+            if (!component.maxFailureRate) return { valid: true, errors: [] }
+
+            const errors = []
+            for (const port of outputPorts) {
+                const p = this.evaluateProbability(componentId, port.id, 0, [])
+                if (p > component.maxFailureRate) {
+                    errors.push(
+                        `Output port "${port.name}": computed probability ${+p.toPrecision(4)} exceeds maxFailureRate ${+component.maxFailureRate.toPrecision(4)}`
+                    )
+                }
+            }
+            return { valid: errors.length === 0, errors }
+        },
 
         /** Open CFT editor for a component. Creates empty CFT if none exists. */
         openCft(componentId) {
