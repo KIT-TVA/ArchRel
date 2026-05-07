@@ -120,8 +120,6 @@
             >
               <option value="AND">AND (&amp;)</option>
               <option value="OR">OR (≥1)</option>
-              <option value="NOT">NOT (1̄)</option>
-              <option value="XOR">XOR (=1)</option>
             </select>
           </div>
 
@@ -132,8 +130,7 @@
               type="number"
               min="1"
               max="8"
-              :disabled="selectedItem.type === 'NOT'"
-              :value="selectedItem.inputCount ?? (selectedItem.type === 'NOT' ? 1 : 2)"
+              :value="selectedItem.inputCount ?? 2"
               @input="updateGate('inputCount', Math.max(1, Math.min(8, parseInt($event.target.value) || 1)))"
             />
           </div>

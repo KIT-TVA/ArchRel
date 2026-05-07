@@ -43,21 +43,6 @@
       <span>OR</span>
     </button>
 
-    <button class="toolbar-btn" title="Add NOT Gate" @click="addGate('NOT')">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
-        <text x="8" y="10" text-anchor="middle" font-size="8" font-weight="700" fill="currentColor">1̄</text>
-      </svg>
-      <span>NOT</span>
-    </button>
-
-    <button class="toolbar-btn" title="Add XOR Gate" @click="addGate('XOR')">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
-        <text x="8" y="10" text-anchor="middle" font-size="7" font-weight="700" fill="currentColor">=1</text>
-      </svg>
-      <span>XOR</span>
-    </button>
 
     <div class="w-px h-6 bg-panel-border mx-1" />
 
@@ -138,7 +123,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useCftStore } from '../../stores/cft.js'
+import { useCftStore, SYSTEM_CFT_KEY } from '../../stores/cft.js'
 import { useDiagramStore } from '../../stores/diagram.js'
 
 const emit = defineEmits(['close'])
@@ -150,15 +135,16 @@ const showSubMenu = ref(false)
 const subMenuRef = ref(null)
 
 const componentName = computed(() => {
+  if (store.activeComponentId === SYSTEM_CFT_KEY) return 'System'
   const comp = diagramStore.components.find(c => c.id === store.activeComponentId)
   return comp ? comp.name : 'Component'
 })
 
 const hasSelection = computed(() => !!store.selectedNodeId)
 
-// Available components to reference as sub-components (exclude self)
+// Available components to reference as sub-components (exclude self and system key)
 const availableComponents = computed(() => {
-  return diagramStore.components.filter(c => c.id !== store.activeComponentId)
+  return diagramStore.components.filter(c => c.id !== store.activeComponentId && c.id !== SYSTEM_CFT_KEY)
 })
 
 function addEvent() {

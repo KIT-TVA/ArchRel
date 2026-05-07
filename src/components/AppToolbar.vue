@@ -74,6 +74,47 @@
 
     <div class="w-px h-6 bg-panel-border mx-1" />
 
+    <!-- maxf(S) input -->
+    <div class="flex items-center gap-1.5">
+      <label class="text-xs font-mono text-text-muted whitespace-nowrap">maxf(S):</label>
+      <input
+        class="toolbar-maxf-input"
+        type="number"
+        step="any"
+        min="0"
+        max="1"
+        :value="store.maxFailureProbability ?? ''"
+        @input="store.setMaxFailureProbability($event.target.value)"
+        placeholder="—"
+      />
+    </div>
+
+    <!-- System failure probability display -->
+    <span v-if="systemFailureProbability !== null" class="text-xs font-mono text-text-muted whitespace-nowrap">
+      f(S)={{ systemFailureProbability.toFixed(4) }}
+    </span>
+
+    <div class="w-px h-6 bg-panel-border mx-1" />
+
+    <!-- System CFT button -->
+    <button
+      id="btn-system-cft"
+      class="toolbar-btn"
+      :class="{ 'opacity-40 cursor-not-allowed': store.rootComponents.length === 0 }"
+      :disabled="store.rootComponents.length === 0"
+      title="View System CFT"
+      @click="openSystemCft"
+    >
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.3" stroke-dasharray="3 2"/>
+        <line x1="5" y1="6" x2="11" y2="6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="5" y1="9" x2="8" y2="9" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+      </svg>
+      <span>System CFT</span>
+    </button>
+
+    <div class="w-px h-6 bg-panel-border mx-1" />
+
     <!-- Verify -->
     <button id="btn-verify" class="toolbar-btn" :class="{
       '!text-success hover:!bg-success/10 hover:!text-success': isVerifySuccess,
@@ -126,22 +167,6 @@
       <span>Export UML</span>
     </button>
 
-    <button id="btn-settings" class="toolbar-btn" title="Settings" @click="openSettings">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.3" />
-        <path d="M8 1.5
-      L8.6 1.5 L9 3.2 C9.5 3.4 10 3.6 10.4 3.9 L12 3.1 L13 4.1 L12.2 5.7
-      C12.5 6.1 12.7 6.6 12.9 7.1 L14.5 7.5 L14.5 8.5
-      L12.9 8.9 C12.7 9.4 12.5 9.9 12.2 10.3 L13 11.9 L12 12.9 L10.4 12.1
-      C10 12.4 9.5 12.6 9 12.8 L8.6 14.5 L7.4 14.5
-      L7 12.8 C6.5 12.6 6 12.4 5.6 12.1 L4 12.9 L3 11.9 L3.8 10.3
-      C3.5 9.9 3.3 9.4 3.1 8.9 L1.5 8.5 L1.5 7.5
-      L3.1 7.1 C3.3 6.6 3.5 6.1 3.8 5.7 L3 4.1 L4 3.1 L5.6 3.9
-      C6 3.6 6.5 3.4 7 3.2 L7.4 1.5 Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"
-          stroke-linecap="round" />
-      </svg>
-      <span>Settings</span>
-    </button>
   </div>
 
   <!-- PlantUML modal — teleported to body so it's not clipped by toolbar layout -->
@@ -225,117 +250,25 @@
     </div>
   </Teleport>
 
-  <!-- Rule Check Warning modal -->
-  <Teleport to="body">
-    <div v-if="showRuleCheckModal && store.lastRuleCheckResult?.errors?.length"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      @click.self="showRuleCheckModal = false; store.lastRuleCheckResult = null"
-      @keydown.escape="showRuleCheckModal = false; store.lastRuleCheckResult = null">
-      <div class="bg-panel border border-panel-border rounded-2xl shadow-2xl w-[500px] max-h-[80vh] flex flex-col"
-        style="box-shadow: 0 24px 64px rgba(0,0,0,0.5)">
-        <!-- Header -->
-        <div class="flex items-center justify-between px-6 py-4 border-b border-panel-border">
-          <div class="flex items-center gap-3 text-danger">
-            <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
-              <path d="M8 1v14M1 8h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
-                transform="rotate(45 8 8)" />
-            </svg>
-            <span class="font-semibold text-text-primary text-base">Rule Check Warning</span>
-          </div>
-          <button
-            class="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-hover transition-all cursor-pointer text-lg leading-none"
-            @click="showRuleCheckModal = false; store.lastRuleCheckResult = null">✕</button>
-        </div>
-        <!-- Content -->
-        <div class="flex-1 overflow-auto p-6">
-          <p class="text-[13px] text-text-secondary mb-4">One or more components have CFT probabilities exceeding their allowed maxFailureRate.</p>
-          <ul class="list-disc pl-5 text-[13px] text-danger space-y-2">
-            <li v-for="(error, i) in store.lastRuleCheckResult.errors" :key="i">{{ error }}</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </Teleport>
-
-  <!-- Settings modal -->
-  <Teleport to="body">
-    <div v-if="showSettingsModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" @click.self="showSettingsModal = false" @keydown.escape="showSettingsModal = false">
-      <div class="bg-panel border border-panel-border rounded-2xl shadow-2xl w-[500px] max-h-[80vh] flex flex-col p-5" style="box-shadow: 0 24px 64px rgba(0,0,0,0.5)">
-        <!-- Header -->
-        <div class="flex items-center justify-between px-6 py-4 border-b border-panel-border">
-          <div class="flex items-center gap-3 text-accent">
-            <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
-              <circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.3" />
-              <path d="M8 1.5 L8.6 1.5 L9 3.2 C9.5 3.4 10 3.6 10.4 3.9 L12 3.1 L13 4.1 L12.2 5.7 C12.5 6.1 12.7 6.6 12.9 7.1 L14.5 7.5 L14.5 8.5 L12.9 8.9 C12.7 9.4 12.5 9.9 12.2 10.3 L13 11.9 L12 12.9 L10.4 12.1 C10 12.4 9.5 12.6 9 12.8 L8.6 14.5 L7.4 14.5 L7 12.8 C6.5 12.6 6 12.4 5.6 12.1 L4 12.9 L3 11.9 L3.8 10.3 C3.5 9.9 3.3 9.4 3.1 8.9 L1.5 8.5 L1.5 7.5 L3.1 7.1 C3.3 6.6 3.5 6.1 3.8 5.7 L3 4.1 L4 3.1 L5.6 3.9 C6 3.6 6.5 3.4 7 3.2 L7.4 1.5 Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round" />
-            </svg>
-            <span class="font-semibold text-text-primary text-base">Settings</span>
-          </div>
-          <button class="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-hover transition-all cursor-pointer text-lg leading-none" @click="showSettingsModal = false">✕</button>
-        </div>
-
-        <!-- Content -->
-        <div class="flex-1 overflow-auto p-6 flex flex-col gap-6">
-              <div class="mt-5 space-y-4">
-                <div class="rounded-2xl border border-panel-border bg-canvas p-6">
-                  <div class="flex items-center justify-between gap-3">
-                    <div>
-                      <p class="text-sm font-semibold text-text-primary">System Failure Rate (f)</p>
-                      <p class="text-xs text-text-muted">The global system-level failure rate used for maxF calculations.</p>
-                    </div>
-                    <span class="text-sm font-semibold text-text-primary font-mono">{{ store.systemFailureRate }}</span>
-                  </div>
-                  <div class="mt-4">
-                    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                      <input
-                        type="number"
-                        min="0"
-                        max="1"
-                        step="any"
-                        v-model.number="store.systemFailureRate"
-                        class="settings-number flex-1"
-                        @change="store.recalculateAllMaxFailureRates()"
-                      />
-                      <button class="toolbar-btn border border-panel-border bg-surface hover:bg-surface-hover px-4"
-                        @click="store.systemFailureRate = 0; store.recalculateAllMaxFailureRates()">
-                        Reset
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-        </div>
-
-        <!-- Footer actions -->
-        <div class="flex justify-end gap-3 px-6 py-4 border-t border-panel-border">
-          <button class="toolbar-btn !bg-accent !text-canvas hover:!bg-accent-hover px-4" @click="showSettingsModal = false">
-            <span>Done</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  </Teleport>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { useDiagramStore } from '../stores/diagram.js'
+import { useCftStore, SYSTEM_CFT_KEY } from '../stores/cft.js'
 
 const store = useDiagramStore()
+const cftStore = useCftStore()
 const fileInput = ref(null)
 const plantUMLText = ref(null)
 const copied = ref(false)
 
 const verificationResult = ref(null)
 const showErrorModal = ref(false)
-const showSettingsModal = ref(false)
-const showRuleCheckModal = ref(false)
 
 const isVerifySuccess = computed(() => verificationResult.value?.valid === true)
 const isVerifyDanger = computed(() => verificationResult.value?.valid === false)
-
-watch(() => store.lastRuleCheckResult, (val) => {
-  if (val && !val.valid) showRuleCheckModal.value = true
-})
+const systemFailureProbability = computed(() => verificationResult.value?.systemFailureProbability ?? null)
 
 const props = defineProps({
   zoom: { type: Number, default: 1 },
@@ -345,7 +278,14 @@ const hasSelection = computed(() => !!store.selectedId)
 const canAddInterface = computed(() => store.selectedType === 'component' && !!store.selectedId)
 
 function addComponent() {
-  store.addComponent(null, Math.round((200 + Math.random() * 100) / 10) * 10, Math.round((200 + Math.random() * 100) / 10) * 10)
+  if (store.selectedType === 'component' && store.selectedId) {
+    const parentId = store.selectedId
+    store.addSubcomponent(parentId)
+    // Re-select the parent so repeated presses add siblings, not a nested chain
+    store.selectItem(parentId, 'component')
+  } else {
+    store.addComponent(null, Math.round((200 + Math.random() * 100) / 10) * 10, Math.round((200 + Math.random() * 100) / 10) * 10)
+  }
 }
 
 function addInterface() {
@@ -356,10 +296,6 @@ function addInterface() {
 function addSubcomponent() {
   if (!canAddInterface.value) return
   store.addSubcomponent(store.selectedId)
-}
-
-function openSettings() {
-  showSettingsModal.value = true
 }
 
 function clearAll() {
@@ -373,6 +309,11 @@ function verifyDiagram() {
   }
 
   console.log('Verification result:', verificationResult.value)
+}
+
+function openSystemCft() {
+  if (store.rootComponents.length === 0) return
+  cftStore.openCft(SYSTEM_CFT_KEY)
 }
 
 function deleteSelected() {
@@ -441,23 +382,19 @@ function downloadPlantUML() {
   color: var(--color-text-primary);
 }
 
-.settings-range {
-  width: 100%;
-  accent-color: var(--color-accent);
-}
-
-.settings-number {
-  min-width: 5.5rem;
+.toolbar-maxf-input {
+  width: 64px;
+  padding: 4px 8px;
+  border-radius: 6px;
   border: 1px solid var(--color-panel-border);
-  border-radius: 0.85rem;
   background: var(--color-canvas);
   color: var(--color-text-primary);
-  padding: 0.65rem 0.85rem;
-  font-size: 0.9rem;
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
   outline: none;
+  transition: border-color 0.15s;
 }
-
-.settings-number:focus {
-  box-shadow: 0 0 0 3px rgba(73, 80, 87, 0.12);
+.toolbar-maxf-input:focus {
+  border-color: var(--color-accent);
 }
 </style>

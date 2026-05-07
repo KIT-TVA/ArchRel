@@ -50,7 +50,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useCftStore } from '../../stores/cft.js'
+import { useCftStore, SYSTEM_CFT_KEY } from '../../stores/cft.js'
 import CftToolbar from './CftToolbar.vue'
 import CftCanvas from './CftCanvas.vue'
 import CftPropertiesPanel from './CftPropertiesPanel.vue'
@@ -61,6 +61,11 @@ const showCftErrorModal = ref(false)
 const cftValidationResult = ref(null)
 
 function tryClose() {
+  // System CFT has no component to validate against
+  if (store.activeComponentId === SYSTEM_CFT_KEY) {
+    store.closeCft()
+    return
+  }
   const result = store.validateAgainstComponent(store.activeComponentId)
   if (!result.valid) {
     cftValidationResult.value = result

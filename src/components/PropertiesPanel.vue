@@ -50,41 +50,38 @@
             </div>
           </div>
 
+          <!-- Own failure rate (intrinsic failure probability of the component itself) -->
+          <div class="field-group">
+            <label class="field-label">Own Failure f_own</label>
+            <input
+              id="prop-intrinsic-failure-rate"
+              class="field-input"
+              type="number"
+              step="any"
+              min="0"
+              max="1"
+              :value="selectedComp.intrinsicFailureRate ?? 0"
+              @input="updateField('intrinsicFailureRate', Math.min(1, Math.max(0, +$event.target.value)))"
+              placeholder="0"
+            />
+          </div>
+
           <div class="field-group">
             <label class="field-label">Failure Rate</label>
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="text-[11px] text-text-muted mb-1 block font-mono">f{{ hasCftOutput ? ' (CFT)' : '' }}</label>
-                <input
-                  id="prop-failure-rate"
-                  class="field-input"
-                  type="number"
-                  step="any"
-                  min="0"
-                  max="1"
-                  :value="selectedComp.failureRate ?? 0"
-                  :readonly="hasCftOutput"
-                  :style="hasCftOutput ? 'opacity:0.6;cursor:not-allowed' : ''"
-                  @input="!hasCftOutput && updateField('failureRate', Math.min(1, Math.max(0, +$event.target.value)))"
-                  placeholder="0"
-                />
-              </div>
-              <div>
-                <label class="text-[11px] text-text-muted mb-1 block font-mono">max f</label>
-                <input
-                  id="prop-max-failure-rate"
-                  class="field-input"
-                  type="number"
-                  step="any"
-                  min="0"
-                  max="1"
-                  :value="selectedComp.maxFailureRate ?? 0"
-                  readonly
-                  style="opacity: 0.6; cursor: not-allowed;"
-                  placeholder="0"
-                />
-              </div>
-            </div>
+            <label class="text-[11px] text-text-muted mb-1 block font-mono">f{{ hasCftOutput ? ' (CFT)' : '' }}</label>
+            <input
+              id="prop-failure-rate"
+              class="field-input"
+              type="number"
+              step="any"
+              min="0"
+              max="1"
+              :value="selectedComp.failureRate ?? 0"
+              :readonly="hasCftOutput"
+              :style="hasCftOutput ? 'opacity:0.6;cursor:not-allowed' : ''"
+              @input="!hasCftOutput && updateField('failureRate', Math.min(1, Math.max(0, +$event.target.value)))"
+              placeholder="0"
+            />
           </div>
 
           <div class="field-group">
@@ -187,6 +184,7 @@ const hasCftOutput = computed(() => {
   const cft = cftStore.cfts[selectedComp.value.id]
   return !!(cft && cft.nodes.some(n => n.type === 'outputPort'))
 })
+
 
 const reqCompName = computed(() => {
   if (!selectedIface.value) return '—'
