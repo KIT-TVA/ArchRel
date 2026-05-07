@@ -7,3 +7,6 @@
 - [x] currently subcomponents do not show their maxf value correctly
 - [x] interface rule maxf refinement could be broken? (they get assigned the same value
 - [x] repeatetly pressing "add component" should be the same as adding many subcomponents to the system 
+- [ ] The maxf value of the system should be propagated downwards (each component recieves a maxf value)
+- [ ] during each refinement step the cft of the touched components should be evaluated to a probability and checked if that probability
+is higher than maxf - if so the refinement fails and an error is shown
