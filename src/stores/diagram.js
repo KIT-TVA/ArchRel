@@ -19,6 +19,44 @@ export const useDiagramStore = defineStore('diagram', {
         ),
         selectedComponent: (state) => state.components.find(c => c.id === state.selectedId),
         selectedInterface: (state) => state.interfaces.find(i => i.id === state.selectedId),
+
+        allComponentMaxf(state) {
+            if (state.maxFailureProbability === null) return {}
+
+            const result = {}
+            const providerIds = new Set(state.interfaces.map(i => i.providedComponentId))
+            const roots = state.components.filter(c => !c.parentId && !providerIds.has(c.id))
+
+            if (roots.length === 0) return {}
+
+            const rootMaxf = 1 - Math.pow(1 - state.maxFailureProbability, 1 / roots.length)
+
+            const allocateDown = (componentId, maxf) => {
+                if (result[componentId] === undefined) {
+                    result[componentId] = maxf
+                } else {
+                    result[componentId] = Math.min(result[componentId], maxf)
+                }
+
+                const children = state.components.filter(c => c.parentId === componentId)
+                const providers = state.interfaces
+                    .filter(i => i.requiredComponentId === componentId)
+                    .map(i => state.components.find(c => c.id === i.providedComponentId))
+                    .filter(Boolean)
+
+                const totalInputs = children.length + providers.length + 1 // +1 for intrinsic failure event
+                if (totalInputs <= 1) return
+
+                const childMaxf = 1 - Math.pow(1 - maxf, 1 / totalInputs)
+
+                children.forEach(child => allocateDown(child.id, childMaxf))
+                providers.forEach(prov => allocateDown(prov.id, childMaxf))
+            }
+
+            roots.forEach(root => allocateDown(root.id, rootMaxf))
+
+            return result
+        },
     },
 
     actions: {

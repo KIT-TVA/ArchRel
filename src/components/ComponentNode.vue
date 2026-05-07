@@ -78,10 +78,19 @@
     <g>
       <text
         :x="comp.x + comp.width / 2"
-        :y="comp.y + comp.height - 12"
+        :y="comp.y + comp.height - (exceedsMaxf ? 22 : 12)"
         text-anchor="middle"
         class="failure-text"
+        :class="{ 'failure-text-active': exceedsMaxf }"
       >f = {{ +(comp.failureRate || 0).toPrecision(4) }}</text>
+      <text
+        v-if="exceedsMaxf"
+        :x="comp.x + comp.width / 2"
+        :y="comp.y + comp.height - 10"
+        text-anchor="middle"
+        class="failure-text failure-text-active"
+        style="font-size: 9px;"
+      >maxf = {{ +(store.allComponentMaxf[comp.id]).toPrecision(4) }}</text>
     </g>
 
     <!-- Children sub-components (rendered inside) -->
@@ -123,6 +132,11 @@ const store = useDiagramStore()
 const isSelected = computed(() => store.selectedId === props.comp.id)
 const children = computed(() => store.childrenOf(props.comp.id))
 const hasChildren = computed(() => children.value.length > 0)
+const exceedsMaxf = computed(() => {
+  const maxf = store.allComponentMaxf?.[props.comp.id]
+  if (maxf === undefined) return false
+  return (props.comp.failureRate || 0) > maxf
+})
 
 // Badge width no longer needed since it's just centered text now
 

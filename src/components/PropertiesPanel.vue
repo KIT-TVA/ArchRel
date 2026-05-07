@@ -84,6 +84,14 @@
             />
           </div>
 
+          <div class="field-group" v-if="componentMaxf !== null">
+            <label class="field-label">Allocated maxf</label>
+            <div class="text-xs font-mono px-2 py-1.5 rounded border border-panel-border bg-canvas"
+                 :class="{ 'text-red-400': isExceedingMaxf }">
+              {{ componentMaxf.toExponential(3) }}
+            </div>
+          </div>
+
           <div class="field-group">
             <label class="field-label">Interfaces ({{ compInterfaces.length }})</label>
             <div v-if="compInterfaces.length === 0" class="text-xs text-text-muted italic">No interfaces yet</div>
@@ -183,6 +191,16 @@ const hasCftOutput = computed(() => {
   if (!selectedComp.value) return false
   const cft = cftStore.cfts[selectedComp.value.id]
   return !!(cft && cft.nodes.some(n => n.type === 'outputPort'))
+})
+
+const componentMaxf = computed(() => {
+  if (!selectedComp.value) return null
+  return store.allComponentMaxf?.[selectedComp.value.id] ?? null
+})
+
+const isExceedingMaxf = computed(() => {
+  if (!selectedComp.value || componentMaxf.value === null) return false
+  return (selectedComp.value.failureRate || 0) > componentMaxf.value
 })
 
 

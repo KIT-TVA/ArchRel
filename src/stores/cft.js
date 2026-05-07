@@ -240,7 +240,14 @@ export const useCftStore = defineStore('cft', {
             }
             diagramStore.updateComponent(componentId, { failureRate: computedFailureRate })
 
-            return { valid: true, errors: [] }
+            const errors = []
+            const maxf = diagramStore.allComponentMaxf[componentId]
+            if (maxf !== undefined && computedFailureRate > maxf) {
+                errors.push(
+                    `Failure probability (${computedFailureRate.toExponential(3)}) exceeds allocated maxf (${maxf.toExponential(3)}).`
+                )
+            }
+            return { valid: errors.length === 0, errors }
         },
 
         /** Open CFT editor for a component. Creates empty CFT if none exists. */

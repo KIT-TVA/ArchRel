@@ -37,7 +37,7 @@
         <!-- Content -->
         <div class="flex-1 overflow-auto p-6">
           <p class="text-[13px] text-text-secondary mb-4">
-            The CFT cannot be closed because its computed output probability exceeds the component's declared failure rate. Fix the fault tree and try again.
+            The CFT cannot be closed because its computed failure probability exceeds the component's allocated maximum failure probability (maxf). Fix the fault tree and try again.
           </p>
           <ul class="list-disc pl-5 text-[13px] text-danger space-y-2">
             <li v-for="(error, i) in cftValidationResult.errors" :key="i">{{ error }}</li>
