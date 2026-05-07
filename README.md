@@ -10,4 +10,4 @@
 - [x] The maxf value of the system should be propagated downwards (each component recieves a maxf value)
 - [x] during each refinement step the cft of the touched components should be evaluated to a probability and checked if that probability
 is higher than maxf - if so the refinement fails and an error is shown
-- [ ] double click on subcomponent opens its CFT
+- [x] double click on subcomponent opens its CFT

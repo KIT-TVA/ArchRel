@@ -1,5 +1,5 @@
 <template>
-  <g @mousedown.stop="onMouseDown" @click.stop="onClick" class="component-node">
+  <g @mousedown.stop="onMouseDown" @click.stop="onClick" @dblclick.stop="onDblClick" class="component-node">
     <!-- Shadow / glow for selected -->
     <rect
       v-if="isSelected"
@@ -122,6 +122,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useDiagramStore } from '../stores/diagram.js'
+import { useCftStore } from '../stores/cft.js'
 
 const props = defineProps({
   comp: { type: Object, required: true },
@@ -129,6 +130,7 @@ const props = defineProps({
 })
 
 const store = useDiagramStore()
+const cftStore = useCftStore()
 const isSelected = computed(() => store.selectedId === props.comp.id)
 const children = computed(() => store.childrenOf(props.comp.id))
 const hasChildren = computed(() => children.value.length > 0)
@@ -170,6 +172,10 @@ let dragStart = null
 
 function onClick() {
   store.selectItem(props.comp.id, 'component')
+}
+
+function onDblClick() {
+  cftStore.openCft(props.comp.id)
 }
 
 // Clamp position within parent bounds

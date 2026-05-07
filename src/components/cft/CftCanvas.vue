@@ -33,7 +33,7 @@
       <g :transform="`translate(${pan.x}, ${pan.y}) scale(${zoom})`">
         <!-- Sub-component references -->
         <g v-for="sc in store.activeSubComponents" :key="sc.id">
-          <g class="cft-subcomp" @mousedown.stop="onSubCompMouseDown($event, sc)" @click.stop="onSubCompClick(sc)">
+          <g class="cft-subcomp" @mousedown.stop="onSubCompMouseDown($event, sc)" @click.stop="onSubCompClick(sc)" @dblclick.stop="onSubCompDblClick(sc)">
             <!-- Selection ring -->
             <rect
               v-if="store.selectedNodeId === sc.id"
@@ -325,6 +325,10 @@ let scDragStart = null
 function onSubCompClick(sc) {
   if (store.connectMode) return
   store.selectNode(sc.id, 'subComponent')
+}
+function onSubCompDblClick(sc) {
+  if (store.connectMode) return
+  store.openCft(sc.refComponentId)
 }
 function onSubCompConnClick(sc, portIndex = 0, side = 'input') {
   if (!store.connectMode) return
