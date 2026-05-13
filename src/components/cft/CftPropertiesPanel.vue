@@ -92,6 +92,33 @@
             </div>
           </div>
 
+          <div class="field-group" v-if="selectedItem.type === 'outputPort' && componentMaxf !== null">
+            <label class="field-label">maxf</label>
+            <div class="flex items-center gap-1">
+              <input
+                class="field-input flex-1 font-mono text-xs"
+                type="number"
+                step="any"
+                min="0"
+                max="1"
+                :value="activeComp?.customMaxf ?? componentMaxf"
+                :class="{ 'border-red-400': customMaxfOverBudget }"
+                @input="updateCustomMaxf($event.target.value)"
+              />
+              <button
+                v-if="activeComp?.customMaxf != null"
+                class="text-[11px] px-2 py-1.5 rounded border border-panel-border bg-canvas text-text-muted hover:text-text-primary hover:border-accent cursor-pointer transition-all whitespace-nowrap"
+                @click="resetCustomMaxf"
+              >Reset</button>
+            </div>
+            <div v-if="customMaxfOverBudget" class="text-[10px] text-red-400">
+              Exceeds parent budget — effective: {{ componentMaxf.toExponential(3) }}
+            </div>
+            <div v-else-if="activeComp?.customMaxf != null" class="text-[10px] text-text-muted italic">
+              Custom override active
+            </div>
+          </div>
+
           <div class="field-group">
             <label class="field-label">Position</label>
             <div class="grid grid-cols-2 gap-2">
@@ -253,11 +280,42 @@
 
 <script setup>
 import { computed } from 'vue'
-import { useCftStore } from '../../stores/cft.js'
+import { useCftStore, SYSTEM_CFT_KEY } from '../../stores/cft.js'
 import { useDiagramStore } from '../../stores/diagram.js'
 
 const store = useCftStore()
 const diagramStore = useDiagramStore()
+
+const activeComp = computed(() => {
+  if (!store.activeComponentId || store.activeComponentId === SYSTEM_CFT_KEY) return null
+  return diagramStore.components.find(c => c.id === store.activeComponentId) ?? null
+})
+
+const componentMaxf = computed(() => {
+  if (!activeComp.value) return null
+  return diagramStore.allComponentMaxf?.[activeComp.value.id] ?? null
+})
+
+const customMaxfOverBudget = computed(() => {
+  if (!activeComp.value || activeComp.value.customMaxf == null || componentMaxf.value === null) return false
+  return activeComp.value.customMaxf - componentMaxf.value > 1e-10
+})
+
+function updateCustomMaxf(val) {
+  if (!activeComp.value) return
+  if (val === '' || val == null) {
+    diagramStore.updateComponent(activeComp.value.id, { customMaxf: null })
+    return
+  }
+  const n = +val
+  if (isNaN(n) || n < 0 || n > 1) return
+  diagramStore.updateComponent(activeComp.value.id, { customMaxf: n })
+}
+
+function resetCustomMaxf() {
+  if (!activeComp.value) return
+  diagramStore.updateComponent(activeComp.value.id, { customMaxf: null })
+}
 
 const hasSelection = computed(() => !!store.selectedNodeId)
 const selectedItem = computed(() => store.selectedItem)

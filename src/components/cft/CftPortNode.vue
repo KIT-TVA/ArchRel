@@ -23,8 +23,8 @@
     <polygon
       :points="trianglePoints"
       :fill="isSelected ? '#343a40' : '#495057'"
-      :stroke="isSelected ? '#212529' : '#343a40'"
-      stroke-width="1.5"
+      :stroke="!isInput && hasMaxf ? (isValid ? 'var(--color-success)' : 'var(--color-danger)') : (isSelected ? '#212529' : '#343a40')"
+      :stroke-width="!isInput && hasMaxf ? 2.5 : 1.5"
       stroke-linejoin="round"
     />
 
@@ -61,21 +61,32 @@
 
 <script setup>
 import { computed } from 'vue'
-import { useCftStore } from '../../stores/cft.js'
+import { useCftStore, SYSTEM_CFT_KEY } from '../../stores/cft.js'
+import { useDiagramStore } from '../../stores/diagram.js'
 
 const props = defineProps({
   node: { type: Object, required: true },
 })
 
 const store = useCftStore()
+const diagramStore = useDiagramStore()
 const isSelected = computed(() => store.selectedNodeId === props.node.id)
 const isInput = computed(() => props.node.type === 'inputPort')
 const connectMode = computed(() => store.connectMode)
 
-const probabilityText = computed(() => {
-  const p = store.evaluateProbability(store.activeComponentId, props.node.id, 0)
-  return `P: ${Number(p.toFixed(4))}`
+const evaluatedProbability = computed(() =>
+  store.evaluateProbability(store.activeComponentId, props.node.id, 0)
+)
+
+const probabilityText = computed(() => `P: ${Number(evaluatedProbability.value.toFixed(4))}`)
+
+const maxf = computed(() => {
+  if (isInput.value || store.activeComponentId === SYSTEM_CFT_KEY) return null
+  return diagramStore.allComponentMaxf?.[store.activeComponentId] ?? null
 })
+
+const hasMaxf = computed(() => maxf.value !== null)
+const isValid = computed(() => !hasMaxf.value || evaluatedProbability.value <= maxf.value)
 
 // Solid triangle: input points DOWN (inward), output points UP (outward)
 const trianglePoints = computed(() => {

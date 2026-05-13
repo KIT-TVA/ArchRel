@@ -284,7 +284,7 @@ function addComponent() {
     // Re-select the parent so repeated presses add siblings, not a nested chain
     store.selectItem(parentId, 'component')
   } else {
-    store.addComponent(null, Math.round((200 + Math.random() * 100) / 10) * 10, Math.round((200 + Math.random() * 100) / 10) * 10)
+    store.addComponent(null, Math.round((200 + Math.random() * 100) / 10) * 10, Math.round((200 + Math.random() * 100) / 10) * 10, true)
   }
 }
 
