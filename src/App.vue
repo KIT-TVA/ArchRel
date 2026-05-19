@@ -9,6 +9,43 @@
     <!-- CFT Editor (full-screen overlay) -->
     <CftEditorModal />
 
+    <!-- maxf(S) prompt — mandatory on first load -->
+    <Teleport to="body">
+      <div
+        v-if="store.maxFailureProbability === null"
+        class="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+        tabindex="-1"
+      >
+        <div class="bg-panel border border-panel-border rounded-2xl shadow-2xl w-[380px] flex flex-col"
+          style="box-shadow: 0 24px 64px rgba(0,0,0,0.4)">
+          <div class="flex items-center justify-between px-6 py-4 border-b border-panel-border">
+            <span class="font-semibold text-text-primary text-base">System Failure Budget</span>
+          </div>
+          <div class="p-6 flex flex-col gap-4">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-[11px] font-semibold uppercase tracking-widest text-text-muted">maxf(S) — max failure probability</label>
+              <input
+                ref="maxfInput"
+                class="field-input font-mono"
+                type="number"
+                step="any"
+                min="0"
+                max="1"
+                v-model.number="pendingMaxf"
+                placeholder="e.g. 0.01"
+                @keydown.enter="confirmMaxf"
+              />
+            </div>
+          </div>
+          <div class="px-6 pb-6 flex gap-3 justify-end">
+            <button
+              class="px-4 py-2 rounded-lg border border-accent bg-accent text-white text-sm font-medium hover:bg-accent-hover cursor-pointer transition-all"
+              @click="confirmMaxf">Confirm</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- Component creation dialog -->
     <Teleport to="body">
       <div
@@ -80,9 +117,21 @@ const canvasRef = ref(null)
 const canvasZoom = ref(1)
 const nameInput = ref(null)
 const dialogBackdrop = ref(null)
+const maxfInput = ref(null)
 
 const pendingName = ref('Component')
 const pendingFailureRate = ref(0)
+const pendingMaxf = ref(null)
+
+watch(() => store.maxFailureProbability, (val) => {
+  if (val === null) nextTick(() => maxfInput.value?.focus())
+}, { immediate: true })
+
+function confirmMaxf() {
+  const v = pendingMaxf.value
+  if (v === null || v === '' || isNaN(v) || v < 0 || v > 1) return
+  store.setMaxFailureProbability(v)
+}
 
 watch(() => store.pendingComponentId, (id) => {
   if (id) {
