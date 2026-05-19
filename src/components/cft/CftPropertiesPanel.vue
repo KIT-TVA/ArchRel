@@ -30,7 +30,7 @@
               min="0"
               max="1"
               :value="selectedItem.probability ?? 0"
-              @input="updateNode('probability', Math.max(0, Math.min(1, +$event.target.value)))"
+              @change="updateNode('probability', Math.max(0, Math.min(1, +$event.target.value)))"
               placeholder="0.0"
             />
           </div>
@@ -80,7 +80,7 @@
               min="0"
               max="1"
               :value="selectedItem.probability ?? 0"
-              @input="updateNode('probability', Math.max(0, Math.min(1, +$event.target.value)))"
+              @change="updateNode('probability', Math.max(0, Math.min(1, +$event.target.value)))"
               placeholder="0.0"
             />
           </div>
