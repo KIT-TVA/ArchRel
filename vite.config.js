@@ -8,4 +8,7 @@ export default defineConfig({
     tailwindcss(),
     vue(),
   ],
+  test: {
+    include: ['src/core/**/*.test.js'],
+  },
 })

@@ -40,6 +40,15 @@
 
 
 
+    <!-- maxf label above gate output -->
+    <text
+      v-if="outputMaxf !== null"
+      :x="gate.x + gate.width / 2"
+      :y="gate.y - 6"
+      text-anchor="middle"
+      class="gate-maxf-text"
+    >M: {{ outputMaxf.toFixed(4) }}</text>
+
     <!-- Output connection point (top center) -->
     <circle
       :cx="gate.x + gate.width / 2" :cy="gate.y"
@@ -51,11 +60,11 @@
       @click.stop="onConnPointClick('output')"
     />
 
-    <!-- Input connection point(s) (bottom, evenly distributed) -->
+    <!-- Input connection points (bottom, evenly distributed) -->
     <circle
-      v-for="(_, i) in (gate.inputCount ?? (gate.type === 'NOT' ? 1 : 2))"
+      v-for="(_, i) in inputCount"
       :key="'input-' + i"
-      :cx="gate.x + gate.width * (i + 1) / ((gate.inputCount ?? (gate.type === 'NOT' ? 1 : 2)) + 1)"
+      :cx="gate.x + gate.width * (i + 1) / (inputCount + 1)"
       :cy="gate.y + gate.height"
       r="3"
       :fill="connectMode ? '#198754' : '#adb5bd'"
@@ -86,14 +95,22 @@
 <script setup>
 import { computed } from 'vue'
 import { useCftStore } from '../../stores/cft.js'
+import { useDiagramStore } from '../../stores/diagram.js'
 
 const props = defineProps({
   gate: { type: Object, required: true },
 })
 
 const store = useCftStore()
+const diagramStore = useDiagramStore()
 const isSelected = computed(() => store.selectedNodeId === props.gate.id)
 const connectMode = computed(() => store.connectMode)
+
+const inputCount = computed(() =>
+  props.gate.inputCount ?? (props.gate.type === 'NOT' ? 1 : 2)
+)
+
+const outputMaxf = computed(() => diagramStore.slotMaxfMap?.[props.gate.id] ?? null)
 
 const gateSymbol = computed(() => {
   switch (props.gate.type) {
@@ -138,9 +155,10 @@ function onMouseMove(e) {
   store.moveTooltip(e.clientX + 12, e.clientY + 12)
 }
 
-function onConnPointClick(_slot, portIndex = 0) {
+function onConnPointClick(slot, portIndex = 0) {
   if (!store.connectMode) return
   if (!store.connectSourceId) {
+    if (slot === 'input') return  // gate inputs are targets only, never sources
     store.setConnectSource(props.gate.id, portIndex)
   } else {
     store.addEdge(store.connectSourceId, props.gate.id, store.connectSourcePort, portIndex)
@@ -226,6 +244,14 @@ function onDragEnd() {
   user-select: none;
 }
 
+.gate-maxf-text {
+  font-size: 9px;
+  font-weight: 500;
+  fill: var(--color-success);
+  font-family: var(--font-mono, monospace);
+  pointer-events: none;
+  user-select: none;
+}
 .conn-point {
   cursor: crosshair;
   transition: r 0.15s;

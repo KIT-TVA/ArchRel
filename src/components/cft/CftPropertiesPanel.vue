@@ -293,7 +293,7 @@ const activeComp = computed(() => {
 
 const componentMaxf = computed(() => {
   if (!activeComp.value) return null
-  return diagramStore.allComponentMaxf?.[activeComp.value.id] ?? null
+  return diagramStore.componentCofactorMaxf(activeComp.value.id)
 })
 
 const customMaxfOverBudget = computed(() => {

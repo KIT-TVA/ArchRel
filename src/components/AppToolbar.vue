@@ -307,8 +307,6 @@ function verifyDiagram() {
   if (verificationResult.value && !verificationResult.value.valid) {
     showErrorModal.value = true
   }
-
-  console.log('Verification result:', verificationResult.value)
 }
 
 function openSystemCft() {

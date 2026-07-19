@@ -90,7 +90,7 @@
         text-anchor="middle"
         class="failure-text failure-text-active"
         style="font-size: 9px;"
-      >maxf = {{ +(store.allComponentMaxf[comp.id]).toPrecision(4) }}</text>
+      >maxf = {{ +(store.componentCofactorMaxf(comp.id)).toPrecision(4) }}</text>
     </g>
 
     <!-- Children sub-components (rendered inside) -->
@@ -135,12 +135,10 @@ const isSelected = computed(() => store.selectedId === props.comp.id)
 const children = computed(() => store.childrenOf(props.comp.id))
 const hasChildren = computed(() => children.value.length > 0)
 const exceedsMaxf = computed(() => {
-  const maxf = store.allComponentMaxf?.[props.comp.id]
-  if (maxf === undefined) return false
+  const maxf = store.componentCofactorMaxf(props.comp.id)
+  if (maxf === null) return false
   return (props.comp.failureRate || 0) > maxf
 })
-
-// Badge width no longer needed since it's just centered text now
 
 // Bounds for children to stay inside this component
 const CHILD_PADDING = 10

@@ -80,7 +80,6 @@ const props = defineProps({
 
 const SOCKET_R = 8
 const BALL_R = 6
-const GAP = 0
 
 const isSelected = computed(() => store.selectedId === props.iface.id)
 
@@ -291,7 +290,6 @@ function distToSeg(p, a, b) {
 let dragState = null
 function startDragWaypoint(e, index) {
   if (e.button !== 0) return
-  const zoom = window.__archrelZoom ?? 1
   dragState = { index, startX: e.clientX, startY: e.clientY, origX: waypoints.value[index].x, origY: waypoints.value[index].y }
   window.addEventListener('mousemove', onDragWaypoint)
   window.addEventListener('mouseup', onEndDragWaypoint)

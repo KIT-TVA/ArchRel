@@ -88,6 +88,11 @@
                 @keydown.enter="confirmCreation"
               />
             </div>
+
+            <div v-if="pendingComponentMaxf !== null" class="flex flex-col gap-1.5">
+              <label class="text-[11px] font-semibold uppercase tracking-widest text-text-muted">Allocated maxf</label>
+              <div class="field-info font-mono">{{ pendingComponentMaxf.toFixed(4) }}</div>
+            </div>
           </div>
           <div class="px-6 pb-6 flex gap-3 justify-end">
             <button
@@ -104,7 +109,7 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import AppToolbar from './components/AppToolbar.vue'
 import DiagramCanvas from './components/DiagramCanvas.vue'
 import PropertiesPanel from './components/PropertiesPanel.vue'
@@ -122,6 +127,12 @@ const maxfInput = ref(null)
 const pendingName = ref('Component')
 const pendingFailureRate = ref(0)
 const pendingMaxf = ref(null)
+
+const pendingComponentMaxf = computed(() => {
+  const id = store.pendingComponentId
+  if (!id) return null
+  return store.componentCofactorMaxf(id)
+})
 
 watch(() => store.maxFailureProbability, (val) => {
   if (val === null) nextTick(() => maxfInput.value?.focus())
@@ -183,5 +194,15 @@ watch(canvasRef, (canvas) => {
 }
 .field-input:focus {
   border-color: var(--color-accent);
+}
+.field-info {
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--color-panel-border);
+  background: var(--color-canvas);
+  color: var(--color-success);
+  font-size: 13px;
+  opacity: 0.85;
 }
 </style>

@@ -215,14 +215,9 @@ const hasCftOutput = computed(() => {
 
 const componentMaxf = computed(() => {
   if (!selectedComp.value) return null
-  return store.allComponentMaxf?.[selectedComp.value.id] ?? null
+  return store.componentCofactorMaxf(selectedComp.value.id)
 })
 
-
-const isExceedingMaxf = computed(() => {
-  if (!selectedComp.value || componentMaxf.value === null) return false
-  return (selectedComp.value.failureRate || 0) > componentMaxf.value
-})
 
 const customMaxfOverBudget = computed(() => {
   if (!selectedComp.value || selectedComp.value.customMaxf == null || componentMaxf.value === null) return false

@@ -71,9 +71,9 @@
               class="sc-name-text"
             >{{ getSubCompName(sc) }}</text>
             <!-- Connection points (top = outputs, distributed) -->
-            <g 
-              v-for="(port, i) in getSubCompPorts(sc).outputs" 
-              :key="'out-' + i" 
+            <g
+              v-for="(port, i) in getSubCompPorts(sc).outputs"
+              :key="'out-' + i"
               class="sc-port-group"
               @mouseenter="showTooltip($event, sc, port, 'output')"
               @mouseleave="hideTooltip"
@@ -97,6 +97,14 @@
                 style="cursor: crosshair"
                 @click.stop="onSubCompConnClick(sc, port.index, 'output')"
               />
+              <!-- maxf label above output connection point -->
+              <text
+                v-if="getScMaxf(sc) !== null"
+                :x="sc.x + sc.width * (i + 1) / (getSubCompPorts(sc).outputs.length + 1)"
+                :y="sc.y - 6"
+                text-anchor="middle"
+                class="sc-maxf-text"
+              >M: {{ getScMaxf(sc).toFixed(4) }}</text>
             </g>
             <!-- Connection points (bottom = inputs, distributed) -->
             <g 
@@ -244,6 +252,10 @@ function getSubCompName(sc) {
 
 function getSubCompPorts(sc) {
   return store.getSubComponentPorts(sc.id)
+}
+
+function getScMaxf(sc) {
+  return diagramStore.slotMaxfMap?.[sc.id] ?? null
 }
 
 function formatProb(p) {
@@ -435,6 +447,14 @@ onUnmounted(() => {
   font-weight: 600;
   fill: var(--color-text-primary);
   font-family: var(--font-sans);
+  pointer-events: none;
+  user-select: none;
+}
+.sc-maxf-text {
+  font-size: 9px;
+  font-weight: 500;
+  fill: var(--color-success);
+  font-family: var(--font-mono, monospace);
   pointer-events: none;
   user-select: none;
 }

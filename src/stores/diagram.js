@@ -21,57 +21,95 @@ export const useDiagramStore = defineStore('diagram', {
         selectedComponent: (state) => state.components.find(c => c.id === state.selectedId),
         selectedInterface: (state) => state.interfaces.find(i => i.id === state.selectedId),
 
-        allComponentMaxf(state) {
-            if (state.maxFailureProbability === null) return {}
+        /**
+         * Cofactor-based maxf for any component.
+         * Finds the component as a subcomponent reference in the system or parent CFT,
+         * computes P0/P1 via Shannon cofactors, and respects any customMaxf cap.
+         * Returns a function (componentId) => number|null so Vue tracks dependencies.
+         */
+        componentCofactorMaxf(state) {
+            if (state.maxFailureProbability === null) return () => null
+            const cftStore = useCftStore()
+            const systemCft = cftStore.cfts[SYSTEM_CFT_KEY]
+            if (!systemCft) return () => null
+            const sysOutPort = systemCft.nodes.find(n => n.type === 'outputPort')
+            if (!sysOutPort) return () => null
 
-            const result = {}
-            const providerIds = new Set(state.interfaces.map(i => i.providedComponentId))
-            const roots = state.components.filter(c => !c.parentId && !providerIds.has(c.id))
-
-            if (roots.length === 0) return {}
-
-            const rootMaxf = 1 - Math.pow(1 - state.maxFailureProbability, 1 / roots.length)
-
-            const allocateDown = (componentId, maxf) => {
-                const comp = state.components.find(c => c.id === componentId)
-                const effectiveMaxf = (comp?.customMaxf != null) ? Math.min(comp.customMaxf, maxf) : maxf
-
-                if (result[componentId] === undefined) {
-                    result[componentId] = effectiveMaxf
-                } else {
-                    result[componentId] = Math.min(result[componentId], effectiveMaxf)
-                }
-
-                const children = state.components.filter(c => c.parentId === componentId)
-                const providers = state.interfaces
-                    .filter(i => i.requiredComponentId === componentId)
-                    .map(i => state.components.find(c => c.id === i.providedComponentId))
-                    .filter(Boolean)
-
-                const allDeps = [...children, ...providers]
-                // +1 for intrinsic failure event (never has a custom override)
-                const totalInputs = allDeps.length + 1
-                if (totalInputs <= 1) return
-
-                const customDeps = allDeps.filter(d => d.customMaxf != null)
-                const nonCustomDeps = allDeps.filter(d => d.customMaxf == null)
-                const nonCustomCount = nonCustomDeps.length + 1 // +1 for intrinsic
-
-                const customProduct = customDeps.reduce((acc, d) => acc * (1 - d.customMaxf), 1)
-                const remainingProduct = (1 - effectiveMaxf) / customProduct
-
-                if (remainingProduct <= 0 || remainingProduct >= 1) {
-                    const fallback = remainingProduct <= 0 ? 1 : 0
-                    nonCustomDeps.forEach(d => allocateDown(d.id, fallback))
-                } else {
-                    const defaultChildMaxf = 1 - Math.pow(remainingProduct, 1 / nonCustomCount)
-                    nonCustomDeps.forEach(d => allocateDown(d.id, defaultChildMaxf))
-                }
-                customDeps.forEach(d => allocateDown(d.id, d.customMaxf))
+            const iv = state.maxFailureProbability
+            const computeCofactor = (scId) => {
+                const p0 = cftStore.evaluateProbability(SYSTEM_CFT_KEY, sysOutPort.id, 0, [], { [scId]: 0 })
+                const p1 = cftStore.evaluateProbability(SYSTEM_CFT_KEY, sysOutPort.id, 0, [], { [scId]: 1 })
+                if (Math.abs(p1 - p0) < 1e-12) return null
+                if (iv < p0 - 1e-12) return null
+                const natural = (iv - p0) / (p1 - p0)
+                // Natural > 1 means element is unconstrained (other elements already satisfy budget)
+                if (natural > 1 + 1e-10) return null
+                return Math.max(0, natural)
             }
 
-            roots.forEach(root => allocateDown(root.id, rootMaxf))
+            return (componentId) => {
+                let cofactorResult = null
 
+                const sysSc = systemCft.subComponents.find(sc => sc.refComponentId === componentId)
+                if (sysSc) {
+                    cofactorResult = computeCofactor(sysSc.id)
+                } else {
+                    const comp = state.components.find(c => c.id === componentId)
+                    if (comp?.parentId) {
+                        const parentCft = cftStore.cfts[comp.parentId]
+                        const parentSc = parentCft?.subComponents.find(sc => sc.refComponentId === componentId)
+                        if (parentSc) cofactorResult = computeCofactor(parentSc.id)
+                    }
+                }
+
+                if (cofactorResult === null) return null
+                const comp = state.components.find(c => c.id === componentId)
+                if (comp?.customMaxf != null) return Math.min(comp.customMaxf, cofactorResult)
+                return cofactorResult
+            }
+        },
+
+        /**
+         * Maxf map for the currently active CFT, keyed by element ID at the OUTPUT side.
+         * Keys: gate.id (gate output), sc.id (subcomponent output), event/inputPort node IDs.
+         * Values: cofactor-based maxf (null if infeasible or no budget set).
+         */
+        slotMaxfMap(state) {
+            if (state.maxFailureProbability === null) return {}
+            const cftStore = useCftStore()
+            if (!cftStore.activeComponentId) return {}
+            const systemCft = cftStore.cfts[SYSTEM_CFT_KEY]
+            if (!systemCft) return {}
+            const sysOutPort = systemCft.nodes.find(n => n.type === 'outputPort')
+            if (!sysOutPort) return {}
+
+            const iv = state.maxFailureProbability
+            const computeMaxf = (elementId) => {
+                const p0 = cftStore.evaluateProbability(SYSTEM_CFT_KEY, sysOutPort.id, 0, [], { [elementId]: 0 })
+                const p1 = cftStore.evaluateProbability(SYSTEM_CFT_KEY, sysOutPort.id, 0, [], { [elementId]: 1 })
+                if (Math.abs(p1 - p0) < 1e-12) return null
+                if (iv < p0 - 1e-12) return null
+                const natural = (iv - p0) / (p1 - p0)
+                if (natural > 1 + 1e-10) return null
+                return Math.max(0, natural)
+            }
+
+            const activeCft = cftStore.cfts[cftStore.activeComponentId]
+            if (!activeCft) return {}
+
+            const result = {}
+            for (const gate of (activeCft.gates ?? [])) {
+                result[gate.id] = computeMaxf(gate.id)
+            }
+            for (const sc of (activeCft.subComponents ?? [])) {
+                result[sc.id] = computeMaxf(sc.id)
+            }
+            // For edge sources not already covered (events, input ports), key by source element ID
+            for (const edge of (activeCft.edges ?? [])) {
+                if (!(edge.sourceId in result)) {
+                    result[edge.sourceId] = computeMaxf(edge.sourceId)
+                }
+            }
             return result
         },
     },
@@ -192,9 +230,7 @@ export const useDiagramStore = defineStore('diagram', {
         },
 
         addInterface(componentId) {
-            let rootId = componentId
-            let comp = this.components.find(c => c.id === rootId)
-            const parent = comp
+            const parent = this.components.find(c => c.id === componentId)
             // Create a new provided component to the right
             const providedComp = this.addComponent(
                 null,
@@ -206,7 +242,7 @@ export const useDiagramStore = defineStore('diagram', {
             const iface = {
                 id: uuidv4(),
                 name: 'Interface',
-                requiredComponentId: rootId,
+                requiredComponentId: componentId,
                 providedComponentId: providedComp.id,
                 waypoints: [],
             }
@@ -216,7 +252,7 @@ export const useDiagramStore = defineStore('diagram', {
             // Regenerate requirer's CFT (now includes provider as dependency)
             // and system CFT (provider is excluded from system level)
             const cftStore = useCftStore()
-            cftStore.regenerateComponentCft(rootId)
+            cftStore.regenerateComponentCft(componentId)
             cftStore.regenerateSystemCft()
 
             return iface
@@ -234,73 +270,39 @@ export const useDiagramStore = defineStore('diagram', {
         },
 
         verifyDiagram() {
-            // Sync all failureRates from CFTs before checking
             const cftStoreRef = useCftStore()
             this.components.forEach(comp => cftStoreRef.validateAgainstComponent(comp.id))
 
             const errors = []
-            console.log('=== Diagram Verification Started ===')
-            console.log(`Total Components: ${this.components.length}`)
-            console.log('')
 
+            // Part A: each component's failure rate must be >= combined child failure rate
             this.components.forEach(comp => {
-                console.log(`Verifying Component: "${comp.name}" (id: ${comp.id})`)
-                console.log(`  Failure Rate: ${comp.failureRate}`)
-
                 const children = this.components.filter(c => c.parentId === comp.id)
-                console.log(`  Children Count: ${children.length}`)
-
-                if (children.length > 0) {
-                    children.forEach(child => {
-                        console.log(`    - Child "${child.name}": failureRate=${child.failureRate}`)
-                    })
-                }
-
                 const childFailureRate = 1 - children.reduce((mul, c) => mul * (1 - c.failureRate), 1)
-                console.log(`  Combined Child Failure Rate: ${childFailureRate}`)
-
-                /*PART A of system validity definition*/
                 if (comp.failureRate < childFailureRate) {
-                    const msg = `Component "${comp.name}" has failure rate (${comp.failureRate}) less than combined child failure rate (${childFailureRate}).`
-                    errors.push(msg)
-                    console.log(` PART A FAILED: ${msg}`)
-                } else {
-                    console.log(` PART A PASSED: failureRate >= childFailureRate`)
+                    errors.push(
+                        `Component "${comp.name}" has failure rate (${comp.failureRate.toExponential(3)}) ` +
+                        `less than combined child failure rate (${childFailureRate.toExponential(3)}).`
+                    )
                 }
-
-                console.log('================================')
             })
 
-            /*PART B: system failure probability vs maxf(S)*/
+            // Part B: system failure probability must not exceed maxf(S)
             const systemCft = cftStoreRef.cfts[SYSTEM_CFT_KEY]
             let systemFailureProbability = null
             if (systemCft) {
                 const outPort = systemCft.nodes.find(n => n.type === 'outputPort')
                 if (outPort) {
                     systemFailureProbability = cftStoreRef.evaluateProbability(SYSTEM_CFT_KEY, outPort.id, 0)
-                    console.log(`System Failure Probability: ${systemFailureProbability}`)
                     if (this.maxFailureProbability !== null && systemFailureProbability > this.maxFailureProbability) {
-                        const msg = `System failure probability (${systemFailureProbability.toFixed(6)}) exceeds maxf(S) = ${this.maxFailureProbability}.`
-                        errors.push(msg)
-                        console.log(` PART B FAILED: ${msg}`)
-                    } else {
-                        console.log(` PART B PASSED`)
+                        errors.push(
+                            `System failure probability (${systemFailureProbability.toFixed(6)}) exceeds maxf(S) = ${this.maxFailureProbability}.`
+                        )
                     }
                 }
             }
 
-            console.log('=== Verification Summary ===')
-            if (errors.length > 0) {
-                console.log(`Diagram Verification Failed (${errors.length} errors):\n` + errors.join('\n'))
-            } else {
-                console.log('Diagram is valid!')
-            }
-
-            return {
-                valid: errors.length === 0,
-                errors,
-                systemFailureProbability,
-            }
+            return { valid: errors.length === 0, errors, systemFailureProbability }
         },
 
         updateInterface(id, updates) {

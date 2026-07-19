@@ -282,11 +282,11 @@ function addWaypointOnSegment(e, logicalIndex) {
   pt.y = e.clientY
   const ctm = e.target.closest('g[transform]')?.getCTM()
   if (ctm) {
-    const inv = ctm.inverse()
+    const transformed = pt.matrixTransform(ctm.inverse())
     store.addWaypoint(
-      props.edge.id, 
-      logicalIndex, 
-      Math.round(transformed.x / 10) * 10, 
+      props.edge.id,
+      logicalIndex,
+      Math.round(transformed.x / 10) * 10,
       Math.round(transformed.y / 10) * 10
     )
   }

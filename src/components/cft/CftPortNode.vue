@@ -31,19 +31,37 @@
     <!-- Name label -->
     <text
       :x="node.x"
-      :y="isInput ? node.y + 26 : node.y - 28"
+      :y="isInput ? node.y + 26 : node.y - 40"
       text-anchor="middle"
       class="port-name-text"
     >{{ node.name }}</text>
 
-    <!-- Probability label (output only, below name) -->
+    <!-- Probability label (output only) -->
     <text
       v-if="!isInput"
       :x="node.x"
-      :y="node.y - 14"
+      :y="node.y - 28"
       text-anchor="middle"
       class="port-prob-text"
     >{{ probabilityText }}</text>
+
+    <!-- maxf label (output only, shown when a system IV is set) -->
+    <text
+      v-if="!isInput && hasMaxf"
+      :x="node.x"
+      :y="node.y - 16"
+      text-anchor="middle"
+      :class="isValid ? 'port-maxf-text port-maxf-ok' : 'port-maxf-text port-maxf-err'"
+    >M: {{ maxf.toFixed(4) }}</text>
+
+    <!-- maxf label for input ports (acting as CFT sources) -->
+    <text
+      v-if="isInput && inputMaxf !== null"
+      :x="node.x"
+      :y="node.y - 22"
+      text-anchor="middle"
+      class="port-maxf-text port-maxf-ok"
+    >M: {{ inputMaxf.toFixed(4) }}</text>
 
     <!-- Connection point -->
     <circle
@@ -82,11 +100,16 @@ const probabilityText = computed(() => `P: ${Number(evaluatedProbability.value.t
 
 const maxf = computed(() => {
   if (isInput.value || store.activeComponentId === SYSTEM_CFT_KEY) return null
-  return diagramStore.allComponentMaxf?.[store.activeComponentId] ?? null
+  return diagramStore.componentCofactorMaxf(store.activeComponentId)
 })
 
 const hasMaxf = computed(() => maxf.value !== null)
 const isValid = computed(() => !hasMaxf.value || evaluatedProbability.value <= maxf.value)
+
+const inputMaxf = computed(() => {
+  if (!isInput.value) return null
+  return diagramStore.slotMaxfMap?.[props.node.id] ?? null
+})
 
 // Solid triangle: input points DOWN (inward), output points UP (outward)
 const trianglePoints = computed(() => {
@@ -127,7 +150,8 @@ function onMouseMove(e) {
 
 function onConnPointClick() {
   if (!store.connectMode) return
-  if (!store.connectSourceId) {
+  if (isInput.value || !store.connectSourceId) {
+    // Input ports are sources only; clicking one always (re-)sets the source
     store.setConnectSource(props.node.id)
   } else {
     store.addEdge(store.connectSourceId, props.node.id, store.connectSourcePort, 0)
@@ -188,6 +212,19 @@ function onDragEnd() {
   font-family: var(--font-mono, monospace);
   pointer-events: none;
   user-select: none;
+}
+.port-maxf-text {
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--font-mono, monospace);
+  pointer-events: none;
+  user-select: none;
+}
+.port-maxf-ok {
+  fill: var(--color-success);
+}
+.port-maxf-err {
+  fill: var(--color-danger);
 }
 .conn-point {
   cursor: crosshair;

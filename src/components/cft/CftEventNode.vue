@@ -69,6 +69,15 @@
       />
     </foreignObject>
 
+    <!-- maxf label above connection point -->
+    <text
+      v-if="maxf !== null"
+      :x="node.x"
+      :y="node.y - 26"
+      text-anchor="middle"
+      class="event-maxf-text"
+    >M: {{ maxf.toFixed(4) }}</text>
+
     <!-- Connection point indicator (top) -->
     <circle
       :cx="node.x" :cy="node.y - 18"
@@ -85,14 +94,18 @@
 <script setup>
 import { computed, ref, nextTick } from 'vue'
 import { useCftStore } from '../../stores/cft.js'
+import { useDiagramStore } from '../../stores/diagram.js'
 
 const props = defineProps({
   node: { type: Object, required: true },
 })
 
 const store = useCftStore()
+const diagramStore = useDiagramStore()
 const isSelected = computed(() => store.selectedNodeId === props.node.id)
 const connectMode = computed(() => store.connectMode)
+
+const maxf = computed(() => diagramStore.slotMaxfMap?.[props.node.id] ?? null)
 
 const isEditing = ref(false)
 const editValue = ref('')
@@ -226,6 +239,14 @@ function cancelEdit() {
   color: var(--color-text-primary);
   padding: 0 2px;
   box-sizing: border-box;
+}
+.event-maxf-text {
+  font-size: 9px;
+  font-weight: 500;
+  fill: var(--color-success);
+  font-family: var(--font-mono, monospace);
+  pointer-events: none;
+  user-select: none;
 }
 .conn-point {
   cursor: crosshair;
