@@ -3,9 +3,7 @@
     <div v-if="hasSelection" class="cft-properties-panel glass border-l border-panel-border flex flex-col w-64 shrink-0 z-10 overflow-y-auto">
       <div class="px-4 py-3 border-b border-panel-border flex items-center justify-between">
         <span class="text-xs font-semibold uppercase tracking-widest text-text-muted">CFT Properties</span>
-        <span class="text-xs px-2 py-0.5 rounded-full border border-panel-border text-text-muted">
-          {{ typeLabel }}
-        </span>
+        <span class="text-xs px-2 py-0.5 rounded-full border border-panel-border text-text-muted">{{ typeLabel }}</span>
       </div>
 
       <!-- Event properties -->
@@ -13,39 +11,23 @@
         <div class="p-4 flex flex-col gap-4">
           <div class="field-group">
             <label class="field-label">Name</label>
-            <input
-              class="field-input"
-              :value="selectedItem.name"
-              @input="updateNode('name', $event.target.value)"
-              placeholder="Event name"
-            />
+            <input class="field-input" :value="selectedItem.name"
+              @input="updateNode('name', ($event.target as HTMLInputElement).value)" placeholder="Event name"/>
           </div>
-
           <div class="field-group">
             <label class="field-label">Probability</label>
-            <input
-              class="field-input"
-              type="number"
-              step="any"
-              min="0"
-              max="1"
+            <input class="field-input" type="number" step="any" min="0" max="1"
               :value="selectedItem.probability ?? 0"
-              @change="updateNode('probability', Math.max(0, Math.min(1, +$event.target.value)))"
-              placeholder="0.0"
-            />
+              @change="updateNode('probability', Math.max(0, Math.min(1, +($event.target as HTMLInputElement).value)))"
+              placeholder="0.0"/>
           </div>
-
           <div class="field-group">
             <label class="field-label">Position</label>
             <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="text-[11px] text-text-muted mb-1 block">X</label>
-                <input class="field-input" type="number" :value="Math.round(selectedItem.x)" @input="updateNode('x', +$event.target.value)"/>
-              </div>
-              <div>
-                <label class="text-[11px] text-text-muted mb-1 block">Y</label>
-                <input class="field-input" type="number" :value="Math.round(selectedItem.y)" @input="updateNode('y', +$event.target.value)"/>
-              </div>
+              <div><label class="text-[11px] text-text-muted mb-1 block">X</label>
+                <input class="field-input" type="number" :value="Math.round(selectedItem.x)" @input="updateNode('x', +($event.target as HTMLInputElement).value)"/></div>
+              <div><label class="text-[11px] text-text-muted mb-1 block">Y</label>
+                <input class="field-input" type="number" :value="Math.round(selectedItem.y)" @input="updateNode('y', +($event.target as HTMLInputElement).value)"/></div>
             </div>
           </div>
         </div>
@@ -56,145 +38,79 @@
         <div class="p-4 flex flex-col gap-4">
           <div class="field-group">
             <label class="field-label">Name</label>
-            <input
-              class="field-input"
-              :value="selectedItem.name"
-              @input="updateNode('name', $event.target.value)"
-              placeholder="Port name"
-            />
+            <input class="field-input" :value="selectedItem.name"
+              @input="updateNode('name', ($event.target as HTMLInputElement).value)" placeholder="Port name"/>
           </div>
-
           <div class="field-group">
             <label class="field-label">Direction</label>
             <div class="text-xs text-text-secondary px-2 py-1.5 rounded border border-panel-border bg-canvas">
               {{ selectedItem.type === 'inputPort' ? '↓ Input (inward)' : '↑ Output (outward)' }}
             </div>
           </div>
-
+          <!-- Input port: editable probability (own failure event placeholder) -->
           <div class="field-group" v-if="selectedItem.type === 'inputPort'">
             <label class="field-label">Probability</label>
-            <input
-              class="field-input"
-              type="number"
-              step="any"
-              min="0"
-              max="1"
+            <input class="field-input" type="number" step="any" min="0" max="1"
               :value="selectedItem.probability ?? 0"
-              @change="updateNode('probability', Math.max(0, Math.min(1, +$event.target.value)))"
-              placeholder="0.0"
-            />
+              @change="updateNode('probability', Math.max(0, Math.min(1, +($event.target as HTMLInputElement).value)))"
+              placeholder="0.0"/>
           </div>
-
+          <!-- Output port: read-only probability from core engine -->
           <div class="field-group" v-if="selectedItem.type === 'outputPort'">
-            <label class="field-label">Probability</label>
+            <label class="field-label">P(E<sub>F</sub>) — from CFT</label>
             <div class="text-xs font-mono text-accent px-2 py-1.5 rounded border border-panel-border bg-canvas">
-              {{ Number(store.evaluateProbability(store.activeComponentId, selectedItem.id, 0).toFixed(4)) }}
+              {{ outputProbText }}
             </div>
           </div>
-
-          <div class="field-group" v-if="selectedItem.type === 'outputPort' && componentMaxf !== null">
-            <label class="field-label">maxf</label>
-            <div class="flex items-center gap-1">
-              <input
-                class="field-input flex-1 font-mono text-xs"
-                type="number"
-                step="any"
-                min="0"
-                max="1"
-                :value="activeComp?.customMaxf ?? componentMaxf"
-                :class="{ 'border-red-400': customMaxfOverBudget }"
-                @input="updateCustomMaxf($event.target.value)"
-              />
-              <button
-                v-if="activeComp?.customMaxf != null"
-                class="text-[11px] px-2 py-1.5 rounded border border-panel-border bg-canvas text-text-muted hover:text-text-primary hover:border-accent cursor-pointer transition-all whitespace-nowrap"
-                @click="resetCustomMaxf"
-              >Reset</button>
-            </div>
-            <div v-if="customMaxfOverBudget" class="text-[10px] text-red-400">
-              Exceeds parent budget — effective: {{ componentMaxf.toExponential(3) }}
-            </div>
-            <div v-else-if="activeComp?.customMaxf != null" class="text-[10px] text-text-muted italic">
-              Custom override active
-            </div>
-          </div>
-
           <div class="field-group">
             <label class="field-label">Position</label>
             <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="text-[11px] text-text-muted mb-1 block">X</label>
-                <input class="field-input" type="number" :value="Math.round(selectedItem.x)" @input="updateNode('x', +$event.target.value)"/>
-              </div>
-              <div>
-                <label class="text-[11px] text-text-muted mb-1 block">Y</label>
-                <input class="field-input" type="number" :value="Math.round(selectedItem.y)" @input="updateNode('y', +$event.target.value)"/>
-              </div>
+              <div><label class="text-[11px] text-text-muted mb-1 block">X</label>
+                <input class="field-input" type="number" :value="Math.round(selectedItem.x)" @input="updateNode('x', +($event.target as HTMLInputElement).value)"/></div>
+              <div><label class="text-[11px] text-text-muted mb-1 block">Y</label>
+                <input class="field-input" type="number" :value="Math.round(selectedItem.y)" @input="updateNode('y', +($event.target as HTMLInputElement).value)"/></div>
             </div>
           </div>
         </div>
       </template>
 
-      <!-- Gate properties -->
+      <!-- Gate properties (AND/OR only) -->
       <template v-if="isGate && selectedItem">
         <div class="p-4 flex flex-col gap-4">
           <div class="field-group">
             <label class="field-label">Gate Type</label>
-            <select
-              class="field-input"
-              :value="selectedItem.type"
-              @change="updateGateType($event.target.value)"
-            >
+            <select class="field-input" :value="selectedItem.type" @change="updateGateType(($event.target as HTMLSelectElement).value)">
               <option value="AND">AND (&amp;)</option>
               <option value="OR">OR (≥1)</option>
             </select>
           </div>
-
           <div class="field-group">
             <label class="field-label">Inputs</label>
-            <input
-              class="field-input"
-              type="number"
-              min="1"
-              max="8"
+            <input class="field-input" type="number" min="1" max="8"
               :value="selectedItem.inputCount ?? 2"
-              @input="updateGate('inputCount', Math.max(1, Math.min(8, parseInt($event.target.value) || 1)))"
-            />
+              @input="updateGate('inputCount', Math.max(1, Math.min(8, parseInt(($event.target as HTMLInputElement).value) || 1)))"/>
           </div>
-
           <div class="field-group">
             <label class="field-label">Position</label>
             <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="text-[11px] text-text-muted mb-1 block">X</label>
-                <input class="field-input" type="number" :value="Math.round(selectedItem.x)" @input="updateGate('x', +$event.target.value)"/>
-              </div>
-              <div>
-                <label class="text-[11px] text-text-muted mb-1 block">Y</label>
-                <input class="field-input" type="number" :value="Math.round(selectedItem.y)" @input="updateGate('y', +$event.target.value)"/>
-              </div>
+              <div><label class="text-[11px] text-text-muted mb-1 block">X</label>
+                <input class="field-input" type="number" :value="Math.round(selectedItem.x)" @input="updateGate('x', +($event.target as HTMLInputElement).value)"/></div>
+              <div><label class="text-[11px] text-text-muted mb-1 block">Y</label>
+                <input class="field-input" type="number" :value="Math.round(selectedItem.y)" @input="updateGate('y', +($event.target as HTMLInputElement).value)"/></div>
             </div>
           </div>
-
           <div class="field-group">
             <label class="field-label">Size</label>
             <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="text-[11px] text-text-muted mb-1 block">W</label>
-                <input class="field-input" type="number" :value="Math.round(selectedItem.width)" @input="updateGate('width', Math.max(40, +$event.target.value))"/>
-              </div>
-              <div>
-                <label class="text-[11px] text-text-muted mb-1 block">H</label>
-                <input class="field-input" type="number" :value="Math.round(selectedItem.height)" @input="updateGate('height', Math.max(40, +$event.target.value))"/>
-              </div>
+              <div><label class="text-[11px] text-text-muted mb-1 block">W</label>
+                <input class="field-input" type="number" :value="Math.round(selectedItem.width)" @input="updateGate('width', Math.max(40, +($event.target as HTMLInputElement).value))"/></div>
+              <div><label class="text-[11px] text-text-muted mb-1 block">H</label>
+                <input class="field-input" type="number" :value="Math.round(selectedItem.height)" @input="updateGate('height', Math.max(40, +($event.target as HTMLInputElement).value))"/></div>
             </div>
           </div>
-
           <div class="field-group">
             <label class="field-label">Connected Edges</label>
-            <div class="text-xs text-text-muted italic">
-              {{ connectedEdgeCount }} edge(s)
-            </div>
+            <div class="text-xs text-text-muted italic">{{ connectedEdgeCount }} edge(s)</div>
           </div>
         </div>
       </template>
@@ -204,36 +120,28 @@
         <div class="p-4 flex flex-col gap-4">
           <div class="field-group">
             <label class="field-label">Referenced Component</label>
-            <div class="text-xs text-text-secondary px-2 py-1.5 rounded border border-panel-border bg-canvas">
-              {{ refComponentName }}
-            </div>
+            <div class="text-xs text-text-secondary px-2 py-1.5 rounded border border-panel-border bg-canvas">{{ refComponentName }}</div>
           </div>
-
+          <div class="field-group">
+            <label class="field-label">P(E<sub>F</sub>) — from CFT</label>
+            <div class="text-xs font-mono text-accent px-2 py-1.5 rounded border border-panel-border bg-canvas">{{ refCompProbText }}</div>
+          </div>
           <div class="field-group">
             <label class="field-label">Position</label>
             <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="text-[11px] text-text-muted mb-1 block">X</label>
-                <input class="field-input" type="number" :value="Math.round(selectedItem.x)" @input="updateSubComp('x', +$event.target.value)"/>
-              </div>
-              <div>
-                <label class="text-[11px] text-text-muted mb-1 block">Y</label>
-                <input class="field-input" type="number" :value="Math.round(selectedItem.y)" @input="updateSubComp('y', +$event.target.value)"/>
-              </div>
+              <div><label class="text-[11px] text-text-muted mb-1 block">X</label>
+                <input class="field-input" type="number" :value="Math.round(selectedItem.x)" @input="updateSubComp('x', +($event.target as HTMLInputElement).value)"/></div>
+              <div><label class="text-[11px] text-text-muted mb-1 block">Y</label>
+                <input class="field-input" type="number" :value="Math.round(selectedItem.y)" @input="updateSubComp('y', +($event.target as HTMLInputElement).value)"/></div>
             </div>
           </div>
-
           <div class="field-group">
             <label class="field-label">Size</label>
             <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="text-[11px] text-text-muted mb-1 block">W</label>
-                <input class="field-input" type="number" :value="Math.round(selectedItem.width)" @input="updateSubComp('width', Math.max(80, +$event.target.value))"/>
-              </div>
-              <div>
-                <label class="text-[11px] text-text-muted mb-1 block">H</label>
-                <input class="field-input" type="number" :value="Math.round(selectedItem.height)" @input="updateSubComp('height', Math.max(60, +$event.target.value))"/>
-              </div>
+              <div><label class="text-[11px] text-text-muted mb-1 block">W</label>
+                <input class="field-input" type="number" :value="Math.round(selectedItem.width)" @input="updateSubComp('width', Math.max(80, +($event.target as HTMLInputElement).value))"/></div>
+              <div><label class="text-[11px] text-text-muted mb-1 block">H</label>
+                <input class="field-input" type="number" :value="Math.round(selectedItem.height)" @input="updateSubComp('height', Math.max(60, +($event.target as HTMLInputElement).value))"/></div>
             </div>
           </div>
         </div>
@@ -244,28 +152,20 @@
         <div class="p-4 flex flex-col gap-4">
           <div class="field-group">
             <label class="field-label">Source</label>
-            <div class="text-xs text-text-secondary px-2 py-1.5 rounded border border-panel-border bg-canvas">
-              {{ store.elementName(selectedItem.sourceId) }}
-            </div>
+            <div class="text-xs text-text-secondary px-2 py-1.5 rounded border border-panel-border bg-canvas">{{ store.elementName(selectedItem.sourceId) }}</div>
           </div>
-
           <div class="field-group">
             <label class="field-label">Target</label>
-            <div class="text-xs text-text-secondary px-2 py-1.5 rounded border border-panel-border bg-canvas">
-              {{ store.elementName(selectedItem.targetId) }}
-            </div>
+            <div class="text-xs text-text-secondary px-2 py-1.5 rounded border border-panel-border bg-canvas">{{ store.elementName(selectedItem.targetId) }}</div>
           </div>
-
           <div class="field-group">
             <label class="field-label">Waypoints</label>
-            <div class="text-xs text-text-muted italic">
-              {{ (selectedItem.waypoints || []).length }} waypoint(s)
-            </div>
+            <div class="text-xs text-text-muted italic">{{ (selectedItem.waypoints || []).length }} waypoint(s)</div>
           </div>
         </div>
       </template>
 
-      <!-- Delete button (always at bottom) -->
+      <!-- Delete button -->
       <div class="mt-auto p-4 border-t border-panel-border">
         <button class="danger-btn w-full" @click="deleteSelected">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -278,47 +178,17 @@
   </transition>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
-import { useCftStore, SYSTEM_CFT_KEY } from '../../stores/cft.js'
+import { useCftStore } from '../../stores/cft.js'
 import { useDiagramStore } from '../../stores/diagram.js'
+import { formatProb } from '../../utils/format.js'
 
 const store = useCftStore()
 const diagramStore = useDiagramStore()
 
-const activeComp = computed(() => {
-  if (!store.activeComponentId || store.activeComponentId === SYSTEM_CFT_KEY) return null
-  return diagramStore.components.find(c => c.id === store.activeComponentId) ?? null
-})
-
-const componentMaxf = computed(() => {
-  if (!activeComp.value) return null
-  return diagramStore.componentCofactorMaxf(activeComp.value.id)
-})
-
-const customMaxfOverBudget = computed(() => {
-  if (!activeComp.value || activeComp.value.customMaxf == null || componentMaxf.value === null) return false
-  return activeComp.value.customMaxf - componentMaxf.value > 1e-10
-})
-
-function updateCustomMaxf(val) {
-  if (!activeComp.value) return
-  if (val === '' || val == null) {
-    diagramStore.updateComponent(activeComp.value.id, { customMaxf: null })
-    return
-  }
-  const n = +val
-  if (isNaN(n) || n < 0 || n > 1) return
-  diagramStore.updateComponent(activeComp.value.id, { customMaxf: n })
-}
-
-function resetCustomMaxf() {
-  if (!activeComp.value) return
-  diagramStore.updateComponent(activeComp.value.id, { customMaxf: null })
-}
-
 const hasSelection = computed(() => !!store.selectedNodeId)
-const selectedItem = computed(() => store.selectedItem)
+const selectedItem = computed(() => store.selectedItem as any)
 
 const isEvent = computed(() => store.selectedNodeType === 'event')
 const isPort = computed(() => store.selectedNodeType === 'inputPort' || store.selectedNodeType === 'outputPort')
@@ -341,7 +211,7 @@ const typeLabel = computed(() => {
 const connectedEdgeCount = computed(() => {
   if (!selectedItem.value) return 0
   const id = selectedItem.value.id
-  return store.activeEdges.filter(e => e.sourceId === id || e.targetId === id).length
+  return store.activeEdges.filter((e: any) => e.sourceId === id || e.targetId === id).length
 })
 
 const refComponentName = computed(() => {
@@ -350,87 +220,30 @@ const refComponentName = computed(() => {
   return comp ? comp.name : '—'
 })
 
-function updateNode(field, val) {
-  store.updateNode(store.selectedNodeId, { [field]: val })
-}
-function updateGate(field, val) {
-  store.updateGate(store.selectedNodeId, { [field]: val })
-}
-function updateGateType(val) {
-  store.updateGate(store.selectedNodeId, { type: val })
-}
-function updateSubComp(field, val) {
-  store.updateSubComponent(store.selectedNodeId, { [field]: val })
-}
-function deleteSelected() {
-  store.removeSelected()
-}
+const outputProbText = computed(() => {
+  if (!store.activeComponentId) return '—'
+  const p = store.evaluateOutputProbability(store.activeComponentId)
+  return p === null ? '—' : formatProb(p)
+})
+
+const refCompProbText = computed(() => {
+  if (!selectedItem.value?.refComponentId) return '—'
+  const p = store.evaluateOutputProbability(selectedItem.value.refComponentId)
+  return p === null ? '—' : formatProb(p)
+})
+
+function updateNode(field: string, val: unknown) { store.updateNode(store.selectedNodeId!, { [field]: val }) }
+function updateGate(field: string, val: unknown) { store.updateGate(store.selectedNodeId!, { [field]: val }) }
+function updateGateType(val: string) { store.updateGate(store.selectedNodeId!, { type: val }) }
+function updateSubComp(field: string, val: unknown) { store.updateSubComponent(store.selectedNodeId!, { [field]: val }) }
+function deleteSelected() { store.removeSelected() }
 </script>
 
 <style scoped>
-.cft-properties-panel {
-  min-height: 0;
-}
-.field-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.field-label {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-text-muted);
-}
-.field-input {
-  width: 100%;
-  padding: 7px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--color-panel-border);
-  background: var(--color-canvas);
-  color: var(--color-text-primary);
-  font-size: 13px;
-  font-family: var(--font-sans);
-  outline: none;
-  transition: border-color 0.15s;
-}
-.field-input:focus {
-  border-color: var(--color-accent);
-}
-.danger-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  background: rgba(239, 68, 68, 0.08);
-  color: var(--color-danger);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.danger-btn:hover {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: var(--color-danger);
-}
-/* Panel slide animation */
-.panel-slide-enter-active,
-.panel-slide-leave-active {
-  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s;
-  overflow: hidden;
-}
-.panel-slide-enter-from,
-.panel-slide-leave-to {
-  width: 0;
-  opacity: 0;
-}
-.panel-slide-enter-to,
-.panel-slide-leave-from {
-  width: 256px;
-  opacity: 1;
-}
+.cft-properties-panel { min-height: 0; }
+.field-group { display: flex; flex-direction: column; gap: 6px; }
+.field-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-text-muted); }
+.panel-slide-enter-active, .panel-slide-leave-active { transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s; overflow: hidden; }
+.panel-slide-enter-from, .panel-slide-leave-to { width: 0; opacity: 0; }
+.panel-slide-enter-to, .panel-slide-leave-from { width: 256px; opacity: 1; }
 </style>

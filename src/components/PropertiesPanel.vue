@@ -17,7 +17,7 @@
               id="prop-name"
               class="field-input"
               :value="selectedComp.name"
-              @input="updateName($event.target.value)"
+              @input="updateName(($event.target as HTMLInputElement).value)"
               placeholder="Component name"
             />
           </div>
@@ -27,11 +27,11 @@
             <div class="grid grid-cols-2 gap-2">
               <div>
                 <label class="text-[11px] text-text-muted mb-1 block">X</label>
-                <input class="field-input" type="number" :value="Math.round(selectedComp.x)" @input="updateField('x', +$event.target.value)"/>
+                <input class="field-input" type="number" :value="Math.round(selectedComp.x)" @input="updateField('x', +($event.target as HTMLInputElement).value)"/>
               </div>
               <div>
                 <label class="text-[11px] text-text-muted mb-1 block">Y</label>
-                <input class="field-input" type="number" :value="Math.round(selectedComp.y)" @input="updateField('y', +$event.target.value)"/>
+                <input class="field-input" type="number" :value="Math.round(selectedComp.y)" @input="updateField('y', +($event.target as HTMLInputElement).value)"/>
               </div>
             </div>
           </div>
@@ -41,75 +41,19 @@
             <div class="grid grid-cols-2 gap-2">
               <div>
                 <label class="text-[11px] text-text-muted mb-1 block">W</label>
-                <input class="field-input" type="number" :value="Math.round(selectedComp.width)" @input="updateField('width', Math.max(80, +$event.target.value))"/>
+                <input class="field-input" type="number" :value="Math.round(selectedComp.width)" @input="updateField('width', Math.max(80, +($event.target as HTMLInputElement).value))"/>
               </div>
               <div>
                 <label class="text-[11px] text-text-muted mb-1 block">H</label>
-                <input class="field-input" type="number" :value="Math.round(selectedComp.height)" @input="updateField('height', Math.max(60, +$event.target.value))"/>
+                <input class="field-input" type="number" :value="Math.round(selectedComp.height)" @input="updateField('height', Math.max(60, +($event.target as HTMLInputElement).value))"/>
               </div>
             </div>
           </div>
 
-          <!-- Own failure rate (intrinsic failure probability of the component itself) -->
-          <div class="field-group">
-            <label class="field-label">Own Failure f_own</label>
-            <input
-              id="prop-intrinsic-failure-rate"
-              class="field-input"
-              type="number"
-              step="any"
-              min="0"
-              max="1"
-              :value="selectedComp.intrinsicFailureRate ?? 0"
-              @input="updateField('intrinsicFailureRate', Math.min(1, Math.max(0, +$event.target.value)))"
-              placeholder="0"
-            />
-          </div>
-
-          <div class="field-group">
-            <label class="field-label">Failure Rate</label>
-            <label class="text-[11px] text-text-muted mb-1 block font-mono">f{{ hasCftOutput ? ' (CFT)' : '' }}</label>
-            <input
-              id="prop-failure-rate"
-              class="field-input"
-              type="number"
-              step="any"
-              min="0"
-              max="1"
-              :value="selectedComp.failureRate ?? 0"
-              :readonly="hasCftOutput"
-              :style="hasCftOutput ? 'opacity:0.6;cursor:not-allowed' : ''"
-              @input="!hasCftOutput && updateField('failureRate', Math.min(1, Math.max(0, +$event.target.value)))"
-              placeholder="0"
-            />
-          </div>
-
-          <div class="field-group" v-if="componentMaxf !== null">
-            <label class="field-label">Allocated maxf</label>
-            <div class="flex items-center gap-1">
-              <input
-                class="field-input flex-1 font-mono text-xs"
-                type="number"
-                step="any"
-                min="0"
-                max="1"
-                :value="selectedComp.customMaxf ?? componentMaxf"
-                :class="{ 'border-red-400': customMaxfOverBudget }"
-                :placeholder="componentMaxf.toExponential(3)"
-                @input="updateCustomMaxf(+$event.target.value)"
-              />
-              <button
-                v-if="selectedComp.customMaxf != null"
-                class="text-[11px] px-2 py-1.5 rounded border border-panel-border bg-canvas text-text-muted hover:text-text-primary hover:border-accent cursor-pointer transition-all whitespace-nowrap"
-                @click="updateField('customMaxf', null)"
-              >Reset</button>
-            </div>
-            <div v-if="customMaxfOverBudget" class="text-[10px] text-red-400">
-              Exceeds parent budget — effective: {{ componentMaxf.toExponential(3) }}
-            </div>
-            <div v-else-if="selectedComp.customMaxf != null" class="text-[10px] text-text-muted italic">
-              Custom override active
-            </div>
+          <!-- P(E_F) — read-only, computed from CFT via core engine -->
+          <div class="field-group" v-if="pFailure !== null">
+            <label class="field-label">P(E<sub>F</sub>) — failure probability</label>
+            <div class="field-readonly font-mono">{{ formatProb(pFailure) }}</div>
           </div>
 
           <div class="field-group">
@@ -156,7 +100,7 @@
               id="prop-iface-name"
               class="field-input"
               :value="selectedIface.name"
-              @input="updateIfaceName($event.target.value)"
+              @input="updateIfaceName(($event.target as HTMLInputElement).value)"
               placeholder="Interface name"
             />
           </div>
@@ -191,10 +135,11 @@
   </transition>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 import { useDiagramStore } from '../stores/diagram.js'
 import { useCftStore } from '../stores/cft.js'
+import { formatProb } from '../utils/format.js'
 
 const store = useDiagramStore()
 const cftStore = useCftStore()
@@ -207,47 +152,30 @@ const compInterfaces = computed(() =>
   selectedComp.value ? store.interfacesOf(selectedComp.value.id) : []
 )
 
-const hasCftOutput = computed(() => {
-  if (!selectedComp.value) return false
-  const cft = cftStore.cfts[selectedComp.value.id]
-  return !!(cft && cft.nodes.some(n => n.type === 'outputPort'))
-})
-
-const componentMaxf = computed(() => {
+const pFailure = computed(() => {
   if (!selectedComp.value) return null
-  return store.componentCofactorMaxf(selectedComp.value.id)
+  return store.componentProbability(selectedComp.value.id)
 })
-
-
-const customMaxfOverBudget = computed(() => {
-  if (!selectedComp.value || selectedComp.value.customMaxf == null || componentMaxf.value === null) return false
-  return selectedComp.value.customMaxf - componentMaxf.value > 1e-10
-})
-
 
 const reqCompName = computed(() => {
   if (!selectedIface.value) return '—'
-  const c = store.components.find(c => c.id === selectedIface.value.requiredComponentId)
+  const c = store.components.find(c => c.id === selectedIface.value!.requiredComponentId)
   return c ? c.name : '—'
 })
 const provCompName = computed(() => {
   if (!selectedIface.value) return '—'
-  const c = store.components.find(c => c.id === selectedIface.value.providedComponentId)
+  const c = store.components.find(c => c.id === selectedIface.value!.providedComponentId)
   return c ? c.name : '—'
 })
 
-function updateCustomMaxf(val) {
-  if (isNaN(val) || val < 0 || val > 1) return
-  store.updateComponent(store.selectedId, { customMaxf: val })
+function updateName(val: string) {
+  store.updateComponent(store.selectedId!, { name: val })
 }
-function updateName(val) {
-  store.updateComponent(store.selectedId, { name: val })
+function updateField(field: string, val: number) {
+  store.updateComponent(store.selectedId!, { [field]: val })
 }
-function updateField(field, val) {
-  store.updateComponent(store.selectedId, { [field]: val })
-}
-function updateIfaceName(val) {
-  store.updateInterface(store.selectedId, { name: val })
+function updateIfaceName(val: string) {
+  store.updateInterface(store.selectedId!, { name: val })
 }
 function openCftEditor() {
   if (store.selectedId) {
@@ -255,10 +183,10 @@ function openCftEditor() {
   }
 }
 function deleteSelected() {
-  store.removeComponent(store.selectedId)
+  store.removeComponent(store.selectedId!)
 }
 function deleteIface() {
-  store.removeInterface(store.selectedId)
+  store.removeInterface(store.selectedId!)
 }
 </script>
 
@@ -278,20 +206,15 @@ function deleteIface() {
   letter-spacing: 0.08em;
   color: var(--color-text-muted);
 }
-.field-input {
+.field-readonly {
   width: 100%;
   padding: 7px 10px;
   border-radius: 8px;
   border: 1px solid var(--color-panel-border);
   background: var(--color-canvas);
-  color: var(--color-text-primary);
+  color: var(--color-accent);
   font-size: 13px;
-  font-family: var(--font-sans);
-  outline: none;
-  transition: border-color 0.15s;
-}
-.field-input:focus {
-  border-color: var(--color-accent);
+  opacity: 0.85;
 }
 .iface-chip {
   display: flex;
@@ -313,26 +236,6 @@ function deleteIface() {
   border-radius: 50%;
   flex-shrink: 0;
 }
-.danger-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  background: rgba(239, 68, 68, 0.08);
-  color: var(--color-danger);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.danger-btn:hover {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: var(--color-danger);
-}
-/* Panel slide animation */
 .panel-slide-enter-active,
 .panel-slide-leave-active {
   transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s;
@@ -366,6 +269,5 @@ function deleteIface() {
   background: var(--color-surface-hover);
   border-color: var(--color-accent);
   color: var(--color-text-primary);
-  opacity: 1;
 }
 </style>

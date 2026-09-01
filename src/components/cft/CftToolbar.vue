@@ -9,7 +9,7 @@
         <circle cx="10" cy="13" r="1.5" stroke="currentColor" stroke-width="1"/>
       </svg>
       <span class="font-semibold text-sm text-text-primary truncate max-w-[140px]">{{ componentName }}</span>
-      <span class="text-xs px-2 py-0.5 rounded-full border border-panel-border text-text-muted">CFT</span>
+      <span class="text-xs px-2 py-0.5 rounded-full border border-panel-border text-text-muted">{{ store.activeComponentId === SYSTEM_CFT_KEY ? 'System CFT' : 'CFT' }}</span>
     </div>
 
     <div class="w-px h-6 bg-panel-border mx-1" />
@@ -26,7 +26,7 @@
 
     <div class="w-px h-6 bg-panel-border mx-1" />
 
-    <!-- Add Gates -->
+    <!-- Add Gates (AND/OR only — Def 17) -->
     <button class="toolbar-btn" title="Add AND Gate" @click="addGate('AND')">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
         <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
@@ -42,7 +42,6 @@
       </svg>
       <span>OR</span>
     </button>
-
 
     <div class="w-px h-6 bg-panel-border mx-1" />
 
@@ -65,7 +64,8 @@
 
     <!-- Add Sub-Component -->
     <div class="relative" ref="subMenuRef">
-      <button class="toolbar-btn" title="Add Sub-Component reference" @click="toggleSubMenu"
+      <button class="toolbar-btn" title="Add Sub-Component reference"
+        @click="toggleSubMenu"
         :class="{ 'opacity-40 cursor-not-allowed': availableComponents.length === 0 }"
         :disabled="availableComponents.length === 0">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -75,23 +75,20 @@
         </svg>
         <span>Sub</span>
       </button>
-
-      <!-- Sub-component picker dropdown -->
       <div v-if="showSubMenu" class="absolute top-full left-0 mt-1 bg-panel border border-panel-border rounded-xl shadow-xl z-50 py-1 min-w-[160px]">
         <button
           v-for="comp in availableComponents" :key="comp.id"
           class="w-full text-left px-3 py-2 text-xs text-text-secondary hover:bg-surface-hover transition-colors"
           @click="addSubComponent(comp.id)"
-        >
-          {{ comp.name }}
-        </button>
+        >{{ comp.name }}</button>
       </div>
     </div>
 
     <div class="w-px h-6 bg-panel-border mx-1" />
 
     <!-- Connect mode -->
-    <button class="toolbar-btn" :class="{ '!bg-accent/15 !text-accent-hover': store.connectMode }" title="Toggle connect mode (click source, then target)" @click="toggleConnect">
+    <button class="toolbar-btn" :class="{ '!bg-accent/15 !text-accent-hover': store.connectMode }"
+      title="Toggle connect mode" @click="toggleConnect">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
         <line x1="3" y1="12" x2="13" y2="4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
         <polygon points="13,4 9,5 11,7" fill="currentColor"/>
@@ -101,7 +98,7 @@
 
     <!-- Delete -->
     <button class="toolbar-btn text-danger hover:bg-danger/10"
-      :class="{ 'opacity-40 cursor-not-allowed': !hasSelection }" :disabled="!hasSelection"
+      :class="{ 'opacity-40 cursor-not-allowed': !canDelete }" :disabled="!canDelete"
       title="Delete selected" @click="deleteSelected">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
         <path d="M2 4h12M5 4V2.5A.5.5 0 0 1 5.5 2h5a.5.5 0 0 1 .5.5V4M6 7v5M10 7v5M3 4l1 9.5A.5.5 0 0 0 4.5 14h7a.5.5 0 0 0 .5-.5L13 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -121,18 +118,19 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useCftStore, SYSTEM_CFT_KEY } from '../../stores/cft.js'
 import { useDiagramStore } from '../../stores/diagram.js'
+import type { GateType } from '../../core/translate.js'
 
-const emit = defineEmits(['close'])
+const emit = defineEmits<{ close: [] }>()
 
 const store = useCftStore()
 const diagramStore = useDiagramStore()
 
 const showSubMenu = ref(false)
-const subMenuRef = ref(null)
+const subMenuRef = ref<HTMLElement | null>(null)
 
 const componentName = computed(() => {
   if (store.activeComponentId === SYSTEM_CFT_KEY) return 'System'
@@ -142,16 +140,24 @@ const componentName = computed(() => {
 
 const hasSelection = computed(() => !!store.selectedNodeId)
 
-// Available components to reference as sub-components (exclude self and system key)
-const availableComponents = computed(() => {
-  return diagramStore.components.filter(c => c.id !== store.activeComponentId && c.id !== SYSTEM_CFT_KEY)
+const canDelete = computed(() => {
+  if (!store.selectedNodeId) return false
+  if (store.selectedNodeType === 'outputPort') {
+    const cft = store.activeComponentId ? store.cfts[store.activeComponentId] : null
+    if (cft && cft.nodes.filter((n: { type: string }) => n.type === 'outputPort').length <= 1) return false
+  }
+  return true
 })
+
+const availableComponents = computed(() =>
+  diagramStore.components.filter(c => c.id !== store.activeComponentId && c.id !== SYSTEM_CFT_KEY)
+)
 
 function addEvent() {
   store.addEvent(Math.round((250 + Math.random() * 100) / 10) * 10, Math.round((300 + Math.random() * 100) / 10) * 10)
 }
 
-function addGate(type) {
+function addGate(type: GateType) {
   store.addGate(type, Math.round((250 + Math.random() * 100) / 10) * 10, Math.round((180 + Math.random() * 60) / 10) * 10)
 }
 
@@ -168,26 +174,17 @@ function toggleSubMenu() {
   showSubMenu.value = !showSubMenu.value
 }
 
-function addSubComponent(refComponentId) {
+function addSubComponent(refComponentId: string) {
   store.addSubComponent(refComponentId, Math.round((300 + Math.random() * 80) / 10) * 10, Math.round((250 + Math.random() * 80) / 10) * 10)
   showSubMenu.value = false
 }
 
-function toggleConnect() {
-  store.toggleConnectMode()
-}
+function toggleConnect() { store.toggleConnectMode() }
+function deleteSelected() { store.removeSelected() }
+function closeCft() { emit('close') }
 
-function deleteSelected() {
-  store.removeSelected()
-}
-
-function closeCft() {
-  emit('close')
-}
-
-// Close sub-menu when clicking outside
-function onClickOutside(e) {
-  if (subMenuRef.value && !subMenuRef.value.contains(e.target)) {
+function onClickOutside(e: MouseEvent) {
+  if (subMenuRef.value && !subMenuRef.value.contains(e.target as Node)) {
     showSubMenu.value = false
   }
 }
@@ -196,25 +193,3 @@ onMounted(() => document.addEventListener('click', onClickOutside))
 onUnmounted(() => document.removeEventListener('click', onClickOutside))
 </script>
 
-<style scoped>
-.toolbar-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-text-secondary);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-  white-space: nowrap;
-}
-
-.toolbar-btn:hover:not(:disabled) {
-  background: var(--color-surface-hover);
-  color: var(--color-text-primary);
-}
-</style>

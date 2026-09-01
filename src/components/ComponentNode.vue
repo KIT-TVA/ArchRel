@@ -21,41 +21,21 @@
       stroke-width="1.5"
     />
 
-    <!-- UML component icon (small rect with two tabs on the left) -->
-    <!-- Main body of the icon -->
-    <rect
-      :x="comp.x + comp.width - 20" :y="comp.y + 7"
-      width="14" height="18"
+    <!-- UML component icon -->
+    <rect :x="comp.x + comp.width - 20" :y="comp.y + 7" width="14" height="18"
       :fill="isSelected ? '#f1f3f5' : '#ffffff'"
-      :stroke="isSelected ? '#212529' : '#343a40'"
-      stroke-width="1.2"
-    />
-    <!-- Upper tab -->
-    <rect
-      :x="comp.x + comp.width - 24" :y="comp.y + 10"
-      width="8" height="4"
+      :stroke="isSelected ? '#212529' : '#343a40'" stroke-width="1.2"/>
+    <rect :x="comp.x + comp.width - 24" :y="comp.y + 10" width="8" height="4"
       :fill="isSelected ? '#f1f3f5' : '#ffffff'"
-      :stroke="isSelected ? '#212529' : '#343a40'"
-      stroke-width="1.2"
-    />
-    <!-- Lower tab -->
-    <rect
-      :x="comp.x + comp.width - 24" :y="comp.y + 18"
-      width="8" height="4"
+      :stroke="isSelected ? '#212529' : '#343a40'" stroke-width="1.2"/>
+    <rect :x="comp.x + comp.width - 24" :y="comp.y + 18" width="8" height="4"
       :fill="isSelected ? '#f1f3f5' : '#ffffff'"
-      :stroke="isSelected ? '#212529' : '#343a40'"
-      stroke-width="1.2"
-    />
+      :stroke="isSelected ? '#212529' : '#343a40'" stroke-width="1.2"/>
 
     <!-- Stereotype label -->
-    <text
-      :x="comp.x + comp.width / 2"
-      :y="comp.y + 22"
-      text-anchor="middle"
-      class="stereotype-text"
-    >«component»</text>
+    <text :x="comp.x + comp.width / 2" :y="comp.y + 22" text-anchor="middle" class="stereotype-text">«component»</text>
 
-    <!-- Component name: top when has children, centered otherwise -->
+    <!-- Component name -->
     <text
       :x="comp.x + comp.width / 2"
       :y="hasChildren ? comp.y + 36 : comp.y + comp.height / 2 + 5"
@@ -74,24 +54,14 @@
       opacity="0.5"
     />
 
-    <!-- Failure rate (centered at bottom) -->
-    <g>
-      <text
-        :x="comp.x + comp.width / 2"
-        :y="comp.y + comp.height - (exceedsMaxf ? 22 : 12)"
-        text-anchor="middle"
-        class="failure-text"
-        :class="{ 'failure-text-active': exceedsMaxf }"
-      >f = {{ +(comp.failureRate || 0).toPrecision(4) }}</text>
-      <text
-        v-if="exceedsMaxf"
-        :x="comp.x + comp.width / 2"
-        :y="comp.y + comp.height - 10"
-        text-anchor="middle"
-        class="failure-text failure-text-active"
-        style="font-size: 9px;"
-      >maxf = {{ +(store.componentCofactorMaxf(comp.id)).toPrecision(4) }}</text>
-    </g>
+    <!-- P(E_F) — computed from CFT via core engine (read-only) -->
+    <text
+      v-if="pFailure !== null"
+      :x="comp.x + comp.width / 2"
+      :y="comp.y + comp.height - 10"
+      text-anchor="middle"
+      class="prob-text"
+    >P={{ formatProb(pFailure) }}</text>
 
     <!-- Children sub-components (rendered inside) -->
     <ComponentNode
@@ -101,7 +71,7 @@
       :parentBounds="childBounds"
     />
 
-    <!-- Resize handles (8 handles: 4 corners + 4 edges) - visible on selection -->
+    <!-- Resize handles -->
     <template v-if="isSelected">
       <rect
         v-for="handle in resizeHandles"
@@ -119,28 +89,30 @@
   </g>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 import { useDiagramStore } from '../stores/diagram.js'
 import { useCftStore } from '../stores/cft.js'
 
-const props = defineProps({
-  comp: { type: Object, required: true },
-  parentBounds: { type: Object, default: null }, // { x, y, w, h } - constrains movement
-})
+const props = defineProps<{
+  comp: { id: string; name: string; x: number; y: number; width: number; height: number; parentId: string | null }
+  parentBounds?: { x: number; y: number; w: number; h: number } | null
+}>()
 
 const store = useDiagramStore()
 const cftStore = useCftStore()
 const isSelected = computed(() => store.selectedId === props.comp.id)
 const children = computed(() => store.childrenOf(props.comp.id))
 const hasChildren = computed(() => children.value.length > 0)
-const exceedsMaxf = computed(() => {
-  const maxf = store.componentCofactorMaxf(props.comp.id)
-  if (maxf === null) return false
-  return (props.comp.failureRate || 0) > maxf
-})
 
-// Bounds for children to stay inside this component
+const pFailure = computed(() => store.componentProbability(props.comp.id))
+
+function formatProb(p: number): string {
+  if (p === 0) return '0'
+  if (p < 0.0001) return p.toExponential(2)
+  return p.toFixed(4)
+}
+
 const CHILD_PADDING = 10
 const HEADER_H = 50
 const childBounds = computed(() => ({
@@ -166,7 +138,7 @@ const resizeHandles = computed(() => {
   ]
 })
 
-let dragStart = null
+let dragStart: { mx: number; my: number; ox: number; oy: number; ow?: number; oh?: number; type: string; dir?: string } | null = null
 
 function onClick() {
   store.selectItem(props.comp.id, 'component')
@@ -176,8 +148,7 @@ function onDblClick() {
   cftStore.openCft(props.comp.id)
 }
 
-// Clamp position within parent bounds
-function clampToParent(x, y, w, h) {
+function clampToParent(x: number, y: number, w: number, h: number) {
   const b = props.parentBounds
   if (!b) return { x, y }
   return {
@@ -186,41 +157,26 @@ function clampToParent(x, y, w, h) {
   }
 }
 
-function onMouseDown(e) {
+function onMouseDown(e: MouseEvent) {
   if (e.button !== 0) return
   store.selectItem(props.comp.id, 'component')
-  dragStart = {
-    mx: e.clientX,
-    my: e.clientY,
-    ox: props.comp.x,
-    oy: props.comp.y,
-    type: 'move',
-  }
+  dragStart = { mx: e.clientX, my: e.clientY, ox: props.comp.x, oy: props.comp.y, type: 'move' }
   window.addEventListener('mousemove', onDragMove)
   window.addEventListener('mouseup', onDragEnd)
   e.preventDefault()
 }
 
-function onResizeMouseDown(e, dir) {
+function onResizeMouseDown(e: MouseEvent, dir: string) {
   if (e.button !== 0) return
-  dragStart = {
-    mx: e.clientX,
-    my: e.clientY,
-    ox: props.comp.x,
-    oy: props.comp.y,
-    ow: props.comp.width,
-    oh: props.comp.height,
-    type: 'resize',
-    dir,
-  }
+  dragStart = { mx: e.clientX, my: e.clientY, ox: props.comp.x, oy: props.comp.y, ow: props.comp.width, oh: props.comp.height, type: 'resize', dir }
   window.addEventListener('mousemove', onDragMove)
   window.addEventListener('mouseup', onDragEnd)
   e.preventDefault()
 }
 
-function onDragMove(e) {
+function onDragMove(e: MouseEvent) {
   if (!dragStart) return
-  const zoom = window.__archrelZoom ?? 1
+  const zoom = (window as any).__archrelZoom ?? 1
   const dx = (e.clientX - dragStart.mx) / zoom
   const dy = (e.clientY - dragStart.my) / zoom
 
@@ -230,23 +186,17 @@ function onDragMove(e) {
     const clamped = clampToParent(newX, newY, props.comp.width, props.comp.height)
     const actualDx = clamped.x - props.comp.x
     const actualDy = clamped.y - props.comp.y
-    store.updateComponent(props.comp.id, {
-      x: clamped.x,
-      y: clamped.y,
-    })
-    // Move all children by the same delta
+    store.updateComponent(props.comp.id, { x: clamped.x, y: clamped.y })
     moveChildrenRecursive(props.comp.id, actualDx, actualDy)
   } else {
-    const dir = dragStart.dir
+    const dir = dragStart.dir!
     let { ox, oy, ow, oh } = dragStart
-    let nx = ox, ny = oy, nw = ow, nh = oh
+    let nx = ox!, ny = oy, nw = ow!, nh = oh!
     const MIN = 80
-    if (dir.includes('e')) nw = Math.max(MIN, Math.round((ow + dx) / 10) * 10)
-    if (dir.includes('s')) nh = Math.max(MIN, Math.round((oh + dy) / 10) * 10)
-    if (dir.includes('w')) { nw = Math.max(MIN, Math.round((ow - dx) / 10) * 10); nx = Math.round((ox + ow - nw) / 10) * 10 }
-    if (dir.includes('n')) { nh = Math.max(MIN, Math.round((oh - dy) / 10) * 10); ny = Math.round((oy + oh - nh) / 10) * 10 }
-    
-    // If inside a parent, clamp resize too
+    if (dir.includes('e')) nw = Math.max(MIN, Math.round((ow! + dx) / 10) * 10)
+    if (dir.includes('s')) nh = Math.max(MIN, Math.round((oh! + dy) / 10) * 10)
+    if (dir.includes('w')) { nw = Math.max(MIN, Math.round((ow! - dx) / 10) * 10); nx = Math.round((ox! + ow! - nw) / 10) * 10 }
+    if (dir.includes('n')) { nh = Math.max(MIN, Math.round((oh! - dy) / 10) * 10); ny = Math.round((oy! + oh! - nh) / 10) * 10 }
     if (props.parentBounds) {
       const b = props.parentBounds
       nx = Math.max(b.x, nx)
@@ -254,7 +204,6 @@ function onDragMove(e) {
       if (nx + nw > b.x + b.w) nw = b.x + b.w - nx
       if (ny + nh > b.y + b.h) nh = b.y + b.h - ny
     }
-    
     store.updateComponent(props.comp.id, { x: nx, y: ny, width: nw, height: nh })
   }
 }
@@ -265,15 +214,11 @@ function onDragEnd() {
   window.removeEventListener('mouseup', onDragEnd)
 }
 
-// Recursively move all descendants by (dx, dy)
-function moveChildrenRecursive(parentId, dx, dy) {
+function moveChildrenRecursive(parentId: string, dx: number, dy: number) {
   if (dx === 0 && dy === 0) return
   const kids = store.components.filter(c => c.parentId === parentId)
   kids.forEach(child => {
-    store.updateComponent(child.id, {
-      x: child.x + dx,
-      y: child.y + dy,
-    })
+    store.updateComponent(child.id, { x: child.x + dx, y: child.y + dy })
     moveChildrenRecursive(child.id, dx, dy)
   })
 }
@@ -305,16 +250,13 @@ function moveChildrenRecursive(parentId, dx, dy) {
 .comp-name-selected {
   fill: #212529;
 }
-.failure-text {
+.prob-text {
   font-size: 11px;
   font-weight: 500;
   font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
-  font-style: italic;
   fill: var(--color-text-secondary);
   pointer-events: none;
   user-select: none;
-}
-.failure-text-active {
-  fill: var(--color-danger);
+  font-style: italic;
 }
 </style>

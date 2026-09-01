@@ -9,6 +9,6 @@ export default defineConfig({
     vue(),
   ],
   test: {
-    include: ['src/core/**/*.test.js'],
+    include: ['src/core/**/*.test.ts'],
   },
 })

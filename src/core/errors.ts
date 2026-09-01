@@ -1,61 +1,60 @@
-/**
- * Custom error classes for the RbC² core semantics engine.
- * All errors extend Error and carry a machine-readable `code` property.
- */
-
 export class WellFormednessError extends Error {
-    constructor(message) {
+    readonly code = 'WELL_FORMEDNESS' as const
+    constructor(message: string) {
         super(message)
         this.name = 'WellFormednessError'
-        this.code = 'WELL_FORMEDNESS'
     }
 }
 
 export class CycleError extends Error {
-    constructor(message) {
+    readonly code = 'CYCLE' as const
+    constructor(message: string) {
         super(message)
         this.name = 'CycleError'
-        this.code = 'CYCLE'
     }
 }
 
 export class OpenFormulaError extends Error {
-    constructor(varId) {
+    readonly code = 'OPEN_FORMULA' as const
+    readonly varId: string
+    constructor(varId: string) {
         super(`Formula has free variable '${varId}' with no probability assignment`)
         this.name = 'OpenFormulaError'
-        this.code = 'OPEN_FORMULA'
         this.varId = varId
     }
 }
 
 export class InfeasibleError extends Error {
-    constructor(iv, p0) {
+    readonly code = 'INFEASIBLE' as const
+    readonly iv: number
+    readonly p0: number
+    constructor(iv: number, p0: number) {
         super(`System already exceeds target: IV=${iv} < P0=${p0}; no value at this port can satisfy the bound`)
         this.name = 'InfeasibleError'
-        this.code = 'INFEASIBLE'
         this.iv = iv
         this.p0 = p0
     }
 }
 
 export class DepthLimitError extends Error {
-    constructor(limit) {
+    readonly code = 'DEPTH_LIMIT' as const
+    readonly limit: number
+    constructor(limit: number) {
         super(`Fold recursion exceeded depth limit of ${limit}`)
         this.name = 'DepthLimitError'
-        this.code = 'DEPTH_LIMIT'
         this.limit = limit
     }
 }
 
-// SPEC-DECISION D1: No XOR or other non-monotone connectives (Def. 17)
 export class InvalidGateError extends Error {
-    constructor(kind) {
+    readonly code = 'INVALID_GATE' as const
+    readonly kind: string
+    constructor(kind: string) {
         super(
             `Gate kind '${kind}' is not allowed. Def. 17 restricts formulas to monotone operators: ` +
             `'and', 'or', 'const', and 'var' only. XOR and negation are excluded.`
         )
         this.name = 'InvalidGateError'
-        this.code = 'INVALID_GATE'
         this.kind = kind
     }
 }

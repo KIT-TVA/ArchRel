@@ -21,14 +21,12 @@
     </template>
 
     <!-- Lollipop at midpoint of the whole path -->
-    <!-- Socket (required half-arc) -->
     <path
       :d="socketPath"
       fill="none"
       :stroke="isSelected ? '#212529' : '#343a40'"
       stroke-width="2"
     />
-    <!-- Ball (provided circle) -->
     <circle
       :cx="ballPos.x"
       :cy="ballPos.y"
@@ -68,15 +66,15 @@
   </g>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 import { useDiagramStore } from '../stores/diagram.js'
 
 const store = useDiagramStore()
 
-const props = defineProps({
-  iface: { type: Object, required: true },
-})
+const props = defineProps<{
+  iface: { id: string; name: string; requiredComponentId: string; providedComponentId: string; waypoints: { x: number; y: number }[] }
+}>()
 
 const SOCKET_R = 8
 const BALL_R = 6
@@ -86,7 +84,6 @@ const isSelected = computed(() => store.selectedId === props.iface.id)
 const reqComp = computed(() => store.components.find(c => c.id === props.iface.requiredComponentId))
 const provComp = computed(() => store.components.find(c => c.id === props.iface.providedComponentId))
 
-// Centers
 const reqCenter = computed(() => {
   const c = reqComp.value
   return c ? { x: c.x + c.width / 2, y: c.y + c.height / 2 } : { x: 0, y: 0 }
@@ -96,8 +93,7 @@ const provCenter = computed(() => {
   return c ? { x: c.x + c.width / 2, y: c.y + c.height / 2 } : { x: 0, y: 0 }
 })
 
-// Edge intersection
-function edgePoint(comp, targetX, targetY) {
+function edgePoint(comp: { x: number; y: number; width: number; height: number }, targetX: number, targetY: number) {
   const cx = comp.x + comp.width / 2
   const cy = comp.y + comp.height / 2
   const dx = targetX - cx
@@ -113,7 +109,6 @@ function edgePoint(comp, targetX, targetY) {
 
 const waypoints = computed(() => props.iface.waypoints || [])
 
-// Edge points aim toward the first/last waypoint, or toward the other component center
 const reqEdge = computed(() => {
   if (!reqComp.value) return { x: 0, y: 0 }
   const target = waypoints.value.length > 0 ? waypoints.value[0] : provCenter.value
@@ -125,13 +120,11 @@ const provEdge = computed(() => {
   return edgePoint(provComp.value, target.x, target.y)
 })
 
-// Full path of points: reqEdge → waypoints → provEdge
 const allPoints = computed(() => [reqEdge.value, ...waypoints.value, provEdge.value])
 
-// Compute total path length and find the midpoint along it
-function pathMidpoint(points) {
+function pathMidpoint(points: { x: number; y: number }[]) {
   let totalLen = 0
-  const segLens = []
+  const segLens: number[] = []
   for (let i = 0; i < points.length - 1; i++) {
     const len = Math.hypot(points[i+1].x - points[i].x, points[i+1].y - points[i].y)
     segLens.push(len)
@@ -144,7 +137,6 @@ function pathMidpoint(points) {
       return {
         x: points[i].x + (points[i+1].x - points[i].x) * t,
         y: points[i].y + (points[i+1].y - points[i].y) * t,
-        // Direction of this segment
         dx: points[i+1].x - points[i].x,
         dy: points[i+1].y - points[i].y,
       }
@@ -154,12 +146,8 @@ function pathMidpoint(points) {
   return { x: points[0].x, y: points[0].y, dx: 1, dy: 0 }
 }
 
-const lollipopMid = computed(() => {
-  const pts = allPoints.value
-  return pathMidpoint(pts)
-})
+const lollipopMid = computed(() => pathMidpoint(allPoints.value))
 
-// Direction vector at the lollipop midpoint
 const dir = computed(() => {
   const m = lollipopMid.value
   const len = Math.hypot(m.dx, m.dy) || 1
@@ -167,7 +155,6 @@ const dir = computed(() => {
 })
 const perp = computed(() => ({ x: -dir.value.y, y: dir.value.x }))
 
-// Lollipop positions (with a slight 1.5px visual gap)
 const socketCenter = computed(() => ({
   x: lollipopMid.value.x - dir.value.x * 1.5,
   y: lollipopMid.value.y - dir.value.y * 1.5,
@@ -177,19 +164,13 @@ const ballPos = computed(() => ({
   y: lollipopMid.value.y + dir.value.y * 1.5,
 }))
 
-// Segments: the polyline broken into individual line segments,
-// with a gap carved out around the lollipop midpoint
 const segments = computed(() => {
   const pts = allPoints.value
-  const mid = lollipopMid.value
-  const d = dir.value
-  const gapStartOffset = SOCKET_R + 1.5 // space for the socket arc + gap
-  const gapEndOffset = BALL_R + 1.5 // space for the ball + gap
+  const gapStartOffset = SOCKET_R + 1.5
+  const gapEndOffset = BALL_R + 1.5
 
-  // Find which segment the lollipop sits on
-  let cumLen = 0
   let totalLen = 0
-  const segLens = []
+  const segLens: number[] = []
   for (let i = 0; i < pts.length - 1; i++) {
     const len = Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y)
     segLens.push(len)
@@ -197,22 +178,18 @@ const segments = computed(() => {
   }
   const halfTotal = totalLen / 2
 
-  const result = []
-  cumLen = 0
+  const result: { x1: number; y1: number; x2: number; y2: number }[] = []
+  let cumLen = 0
   for (let i = 0; i < pts.length - 1; i++) {
     const segStart = cumLen
     const segEnd = cumLen + segLens[i]
     const gapStart = halfTotal - gapStartOffset
     const gapEnd = halfTotal + gapEndOffset
-
     const a = pts[i]
     const b = pts[i+1]
-
     if (segEnd <= gapStart || segStart >= gapEnd) {
-      // Segment fully outside the gap
       result.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y })
     } else {
-      // Segment overlaps the gap — split it
       const len = segLens[i] || 1
       if (segStart < gapStart) {
         const t = (gapStart - segStart) / len
@@ -228,7 +205,6 @@ const segments = computed(() => {
   return result
 })
 
-// Socket arc
 const socketPath = computed(() => {
   const p = perp.value
   const r = SOCKET_R
@@ -241,43 +217,33 @@ const socketPath = computed(() => {
   return `M ${startX} ${startY} A ${r} ${r} 0 0 1 ${endX} ${endY}`
 })
 
-// Click to select
 function onClick() {
   store.selectItem(props.iface.id, 'interface')
 }
 
-// Double-click on a segment to add a waypoint
-function addWaypointOnSegment(e, segIndex) {
-  const zoom = window.__archrelZoom ?? 1
-  const svg = e.target.closest('svg')
+function addWaypointOnSegment(e: MouseEvent, segIndex: number) {
+  const target = e.target as SVGElement
+  const svg = target.closest('svg')!
   const pt = svg.createSVGPoint()
   pt.x = e.clientX
   pt.y = e.clientY
-  const ctm = e.target.closest('g[transform]')?.getCTM()
+  const ctm = (target.closest('g[transform]') as SVGGraphicsElement)?.getCTM()
   if (ctm) {
     const inv = ctm.inverse()
     const transformed = pt.matrixTransform(inv)
-    // Find which actual waypoint index this corresponds to
-    // We need to figure out the insertion index in the waypoints array
-    // Segments go: reqEdge→wp0, wp0→wp1, ..., wpN→provEdge
-    // segIndex in segments may differ from allPoints because of gap splitting,
-    // so use the click position to determine insertion index
-    const wp = waypoints.value
     const clickPt = { x: transformed.x, y: transformed.y }
-    // Find closest segment in allPoints
+    const pts = allPoints.value
     let bestIdx = 0
     let bestDist = Infinity
-    const pts = allPoints.value
     for (let i = 0; i < pts.length - 1; i++) {
       const d = distToSeg(clickPt, pts[i], pts[i+1])
       if (d < bestDist) { bestDist = d; bestIdx = i }
     }
-    // Insert after bestIdx in waypoints (bestIdx 0 = before first wp = index 0)
     store.addWaypoint(props.iface.id, bestIdx, clickPt.x, clickPt.y)
   }
 }
 
-function distToSeg(p, a, b) {
+function distToSeg(p: { x: number; y: number }, a: { x: number; y: number }, b: { x: number; y: number }) {
   const dx = b.x - a.x, dy = b.y - a.y
   const len2 = dx * dx + dy * dy
   if (len2 === 0) return Math.hypot(p.x - a.x, p.y - a.y)
@@ -286,18 +252,17 @@ function distToSeg(p, a, b) {
   return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy))
 }
 
-// Drag a waypoint
-let dragState = null
-function startDragWaypoint(e, index) {
+let dragState: { index: number; startX: number; startY: number; origX: number; origY: number } | null = null
+function startDragWaypoint(e: MouseEvent, index: number) {
   if (e.button !== 0) return
   dragState = { index, startX: e.clientX, startY: e.clientY, origX: waypoints.value[index].x, origY: waypoints.value[index].y }
   window.addEventListener('mousemove', onDragWaypoint)
   window.addEventListener('mouseup', onEndDragWaypoint)
   e.preventDefault()
 }
-function onDragWaypoint(e) {
+function onDragWaypoint(e: MouseEvent) {
   if (!dragState) return
-  const zoom = window.__archrelZoom ?? 1
+  const zoom = (window as any).__archrelZoom ?? 1
   const dx = (e.clientX - dragState.startX) / zoom
   const dy = (e.clientY - dragState.startY) / zoom
   store.updateWaypoint(props.iface.id, dragState.index, dragState.origX + dx, dragState.origY + dy)
@@ -308,8 +273,7 @@ function onEndDragWaypoint() {
   window.removeEventListener('mouseup', onEndDragWaypoint)
 }
 
-// Remove a waypoint via double-click on the handle
-function removeWaypoint(index) {
+function removeWaypoint(index: number) {
   store.removeWaypoint(props.iface.id, index)
 }
 </script>

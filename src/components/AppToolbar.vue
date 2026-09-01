@@ -1,6 +1,5 @@
 <template>
   <div class="toolbar glass border-b border-panel-border flex items-center gap-2 px-4 h-14 shrink-0 z-20">
-    <!-- Logo -->
     <div class="flex items-center gap-2 mr-4">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" class="text-accent">
         <rect x="2" y="6" width="14" height="12" rx="2" stroke="currentColor" stroke-width="1.5" />
@@ -14,7 +13,6 @@
 
     <div class="w-px h-6 bg-panel-border mx-1" />
 
-    <!-- Add Component -->
     <button id="btn-add-component" class="toolbar-btn" title="Add Component" @click="addComponent">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
         <rect x="1" y="3" width="10" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3" />
@@ -26,7 +24,6 @@
       <span>Add Component</span>
     </button>
 
-    <!-- Add Interface (only when component selected) -->
     <button id="btn-add-interface" class="toolbar-btn" :class="{ 'opacity-40 cursor-not-allowed': !canAddInterface }"
       :disabled="!canAddInterface" title="Add Interface to selected component" @click="addInterface">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -37,7 +34,6 @@
       <span>Add Interface</span>
     </button>
 
-    <!-- Add Subcomponent (only when component selected) -->
     <button id="btn-add-subcomponent" class="toolbar-btn" :class="{ 'opacity-40 cursor-not-allowed': !canAddInterface }"
       :disabled="!canAddInterface" title="Add Subcomponent to selected component" @click="addSubcomponent">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -51,7 +47,6 @@
 
     <div class="w-px h-6 bg-panel-border mx-1" />
 
-    <!-- Delete selected -->
     <button id="btn-delete" class="toolbar-btn text-danger hover:bg-danger/10"
       :class="{ 'opacity-40 cursor-not-allowed': !hasSelection }" :disabled="!hasSelection" title="Delete selected"
       @click="deleteSelected">
@@ -63,7 +58,6 @@
       <span>Delete</span>
     </button>
 
-    <!-- Clear All -->
     <button id="btn-clear-all" class="toolbar-btn text-danger hover:bg-danger/10" title="Clear entire diagram"
       @click="clearAll">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -74,52 +68,40 @@
 
     <div class="w-px h-6 bg-panel-border mx-1" />
 
-    <!-- maxf(S) input -->
     <div class="flex items-center gap-1.5">
-      <label class="text-xs font-mono text-text-muted whitespace-nowrap">maxf(S):</label>
+      <label class="text-xs font-mono text-text-muted whitespace-nowrap">IV:</label>
       <input
-        class="toolbar-maxf-input"
+        class="toolbar-iv-input"
         type="number"
         step="any"
         min="0"
         max="1"
-        :value="store.maxFailureProbability ?? ''"
-        @input="store.setMaxFailureProbability($event.target.value)"
+        :value="store.iv ?? ''"
+        @input="store.setIV(($event.target as HTMLInputElement).value)"
         placeholder="—"
       />
     </div>
 
-    <!-- System failure probability display -->
-    <span v-if="systemFailureProbability !== null" class="text-xs font-mono text-text-muted whitespace-nowrap">
-      f(S)={{ systemFailureProbability.toFixed(4) }}
+    <span v-if="systemProbDisplay !== null" class="text-xs font-mono text-text-muted whitespace-nowrap">
+      P(E<sub>F</sub>)={{ formatProb(systemProbDisplay) }}
     </span>
 
     <div class="w-px h-6 bg-panel-border mx-1" />
 
-    <!-- System CFT button -->
-    <button
-      id="btn-system-cft"
-      class="toolbar-btn"
-      :class="{ 'opacity-40 cursor-not-allowed': store.rootComponents.length === 0 }"
-      :disabled="store.rootComponents.length === 0"
-      title="View System CFT"
-      @click="openSystemCft"
-    >
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.3" stroke-dasharray="3 2"/>
-        <line x1="5" y1="6" x2="11" y2="6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
-        <line x1="5" y1="9" x2="8" y2="9" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+    <button id="btn-system-cft" class="toolbar-btn" title="Open System Fault Tree" @click="cftStore.openCft(SYSTEM_CFT_KEY)">
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+        <rect x="2" y="2" width="16" height="16" rx="3" stroke="currentColor" stroke-width="1.3" stroke-dasharray="4 2"/>
+        <rect x="7" y="5" width="6" height="4" rx="1" stroke="currentColor" stroke-width="1"/>
+        <line x1="10" y1="9" x2="10" y2="11" stroke="currentColor" stroke-width="1"/>
+        <circle cx="10" cy="13" r="1.5" stroke="currentColor" stroke-width="1"/>
       </svg>
       <span>System CFT</span>
     </button>
 
-    <div class="w-px h-6 bg-panel-border mx-1" />
-
-    <!-- Verify -->
     <button id="btn-verify" class="toolbar-btn" :class="{
       '!text-success hover:!bg-success/10 hover:!text-success': isVerifySuccess,
       '!text-danger hover:!bg-danger/10 hover:!text-danger': isVerifyDanger
-    }" title="Verify diagram" @click="verifyDiagram">
+    }" title="Verify system admissibility (Def. 18)" @click="verifyDiagram">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
         <path d="M14 4L6 12L2 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
           stroke-linejoin="round" />
@@ -129,12 +111,10 @@
 
     <div class="flex-1" />
 
-    <!-- Zoom info -->
     <span class="text-xs text-text-muted font-mono">{{ Math.round(zoom * 100) }}%</span>
 
     <div class="w-px h-6 bg-panel-border mx-1" />
 
-    <!-- Save -->
     <button id="btn-save" class="toolbar-btn" title="Save diagram as JSON" @click="save">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
         <path d="M13 13.5H3a.5.5 0 0 1-.5-.5V3a.5.5 0 0 1 .5-.5h8l2.5 2.5V13a.5.5 0 0 1-.5.5Z" stroke="currentColor"
@@ -145,7 +125,6 @@
       <span>Save</span>
     </button>
 
-    <!-- Load -->
     <button id="btn-load" class="toolbar-btn" title="Load diagram from JSON" @click="triggerLoad">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
         <path d="M2.5 10V13.5h11V10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
@@ -156,7 +135,6 @@
     </button>
     <input ref="fileInput" type="file" accept=".json" class="hidden" @change="loadFile" />
 
-    <!-- Export PlantUML -->
     <button id="btn-export" class="toolbar-btn" title="Export to PlantUML" @click="exportPlantUML">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
         <path d="M9.5 2H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V5.5L9.5 2Z" stroke="currentColor"
@@ -169,13 +147,11 @@
 
   </div>
 
-  <!-- PlantUML modal — teleported to body so it's not clipped by toolbar layout -->
   <Teleport to="body">
     <div v-if="plantUMLText" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
       @click.self="plantUMLText = null" @keydown.escape="plantUMLText = null">
       <div class="bg-panel border border-panel-border rounded-2xl shadow-2xl w-[680px] max-h-[80vh] flex flex-col"
         style="box-shadow: 0 24px 64px rgba(0,0,0,0.5)">
-        <!-- Header -->
         <div class="flex items-center justify-between px-6 py-4 border-b border-panel-border">
           <div class="flex items-center gap-3">
             <svg width="18" height="18" viewBox="0 0 16 16" fill="none" class="text-accent">
@@ -189,44 +165,42 @@
             class="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-hover transition-all cursor-pointer text-lg leading-none"
             @click="plantUMLText = null">✕</button>
         </div>
-
-        <!-- Code content -->
         <div class="flex-1 overflow-auto p-6">
           <pre
             class="text-[13px] font-mono text-text-secondary leading-relaxed whitespace-pre-wrap break-words bg-canvas rounded-xl p-5 border border-panel-border">{{ plantUMLText }}</pre>
         </div>
-
-        <!-- Footer actions -->
-        <div class="flex justify-center gap-3 px-6 py-4 border-t border-panel-border">
-          <button class="toolbar-btn" @click="copyPlantUML">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-              <rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.3" />
-              <path d="M11 5V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2" stroke="currentColor"
-                stroke-width="1.3" />
-            </svg>
-            <span>{{ copied ? 'Copied!' : 'Copy' }}</span>
-          </button>
-          <button class="toolbar-btn" @click="downloadPlantUML">
+        <div class="flex justify-end gap-3 px-6 py-4 border-t border-panel-border">
+          <button
+            class="px-4 py-2 rounded-lg border border-panel-border bg-canvas text-text-secondary text-sm font-medium hover:bg-surface-hover cursor-pointer transition-all flex items-center gap-2"
+            @click="downloadPlantUML">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
               <path d="M2.5 10V13.5h11V10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
               <path d="M8 2v7.5M5.5 7 8 9.5 10.5 7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"
                 stroke-linejoin="round" />
             </svg>
-            <span>Download .puml</span>
+            Download .puml
+          </button>
+          <button
+            class="px-4 py-2 rounded-lg border border-accent bg-accent text-white text-sm font-medium hover:bg-accent-hover cursor-pointer transition-all flex items-center gap-2"
+            @click="copyPlantUML">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.3" />
+              <path d="M11 5V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2" stroke="currentColor"
+                stroke-width="1.3" />
+            </svg>
+            {{ copied ? 'Copied!' : 'Copy' }}
           </button>
         </div>
       </div>
     </div>
   </Teleport>
 
-  <!-- Verification Errors modal -->
   <Teleport to="body">
     <div v-if="showErrorModal && verificationResult?.errors?.length"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
       @click.self="showErrorModal = false" @keydown.escape="showErrorModal = false">
       <div class="bg-panel border border-panel-border rounded-2xl shadow-2xl w-[500px] max-h-[80vh] flex flex-col"
         style="box-shadow: 0 24px 64px rgba(0,0,0,0.5)">
-        <!-- Header -->
         <div class="flex items-center justify-between px-6 py-4 border-b border-panel-border">
           <div class="flex items-center gap-3 text-danger">
             <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
@@ -239,63 +213,96 @@
             class="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-hover transition-all cursor-pointer text-lg leading-none"
             @click="showErrorModal = false">✕</button>
         </div>
-
-        <!-- Content -->
         <div class="flex-1 overflow-auto p-6">
           <ul class="list-disc pl-5 text-[13px] text-danger space-y-2">
-            <li v-for="(error, i) in verificationResult.errors" :key="i">{{ error }}</li>
+            <li v-for="(error, i) in verificationResult!.errors" :key="i">{{ error }}</li>
           </ul>
+        </div>
+        <div class="px-6 py-4 border-t border-panel-border flex justify-end">
+          <button
+            class="px-4 py-2 rounded-lg border border-panel-border bg-canvas text-text-secondary text-sm font-medium hover:bg-surface-hover cursor-pointer transition-all"
+            @click="showErrorModal = false">Close</button>
         </div>
       </div>
     </div>
   </Teleport>
 
+  <SubcomponentRuleDialog
+    v-if="showSubRuleDialog"
+    :parent-id="ruleDialogParentId"
+    :parent-name="ruleDialogParentName"
+    @applied="showSubRuleDialog = false"
+    @cancel="showSubRuleDialog = false"
+  />
+
+  <InterfaceRuleDialog
+    v-if="showIfaceRuleDialog && ruleDialogParentId"
+    :requirer-id="ruleDialogParentId"
+    :requirer-name="ruleDialogParentName"
+    @applied="showIfaceRuleDialog = false"
+    @cancel="showIfaceRuleDialog = false"
+  />
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useDiagramStore } from '../stores/diagram.js'
 import { useCftStore, SYSTEM_CFT_KEY } from '../stores/cft.js'
+import { formatProb } from '../utils/format.js'
+import SubcomponentRuleDialog from './SubcomponentRuleDialog.vue'
+import InterfaceRuleDialog from './InterfaceRuleDialog.vue'
 
 const store = useDiagramStore()
 const cftStore = useCftStore()
-const fileInput = ref(null)
-const plantUMLText = ref(null)
+const fileInput = ref<HTMLInputElement | null>(null)
+const plantUMLText = ref<string | null>(null)
 const copied = ref(false)
 
-const verificationResult = ref(null)
+interface VerificationResult { valid: boolean; errors: string[]; systemProbability: number | null }
+const verificationResult = ref<VerificationResult | null>(null)
 const showErrorModal = ref(false)
 
 const isVerifySuccess = computed(() => verificationResult.value?.valid === true)
 const isVerifyDanger = computed(() => verificationResult.value?.valid === false)
-const systemFailureProbability = computed(() => verificationResult.value?.systemFailureProbability ?? null)
 
-const props = defineProps({
-  zoom: { type: Number, default: 1 },
-})
+const systemProbDisplay = computed(() => store.systemProbability)
+
+const props = defineProps<{ zoom: number }>()
 
 const hasSelection = computed(() => !!store.selectedId)
 const canAddInterface = computed(() => store.selectedType === 'component' && !!store.selectedId)
 
+const showSubRuleDialog = ref(false)
+const showIfaceRuleDialog = ref(false)
+const ruleDialogParentId = ref<string | null>(null)
+const ruleDialogParentName = ref('')
+
+function openSubRuleDialog(parentId: string | null) {
+  ruleDialogParentId.value = parentId
+  ruleDialogParentName.value = parentId
+    ? (store.components.find(c => c.id === parentId)?.name ?? 'Component')
+    : 'System'
+  showSubRuleDialog.value = true
+}
+
 function addComponent() {
   if (store.selectedType === 'component' && store.selectedId) {
-    const parentId = store.selectedId
-    store.addSubcomponent(parentId)
-    // Re-select the parent so repeated presses add siblings, not a nested chain
-    store.selectItem(parentId, 'component')
+    openSubRuleDialog(store.selectedId)
   } else {
-    store.addComponent(null, Math.round((200 + Math.random() * 100) / 10) * 10, Math.round((200 + Math.random() * 100) / 10) * 10, true)
+    openSubRuleDialog(null)
   }
 }
 
 function addInterface() {
   if (!canAddInterface.value) return
-  store.addInterface(store.selectedId)
+  ruleDialogParentId.value = store.selectedId!
+  ruleDialogParentName.value = store.selectedComponent?.name ?? 'Component'
+  showIfaceRuleDialog.value = true
 }
 
 function addSubcomponent() {
   if (!canAddInterface.value) return
-  store.addSubcomponent(store.selectedId)
+  openSubRuleDialog(store.selectedId!)
 }
 
 function clearAll() {
@@ -307,11 +314,6 @@ function verifyDiagram() {
   if (verificationResult.value && !verificationResult.value.valid) {
     showErrorModal.value = true
   }
-}
-
-function openSystemCft() {
-  if (store.rootComponents.length === 0) return
-  cftStore.openCft(SYSTEM_CFT_KEY)
 }
 
 function deleteSelected() {
@@ -328,13 +330,13 @@ function triggerLoad() {
   fileInput.value?.click()
 }
 
-function loadFile(e) {
-  const file = e.target.files[0]
+function loadFile(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
   const reader = new FileReader()
-  reader.onload = (ev) => store.loadDiagram(ev.target.result)
+  reader.onload = (ev) => store.loadDiagram(ev.target!.result as string)
   reader.readAsText(file)
-  e.target.value = ''
+  ;(e.target as HTMLInputElement).value = ''
 }
 
 function exportPlantUML() {
@@ -342,13 +344,13 @@ function exportPlantUML() {
 }
 
 async function copyPlantUML() {
-  await navigator.clipboard.writeText(plantUMLText.value)
+  await navigator.clipboard.writeText(plantUMLText.value!)
   copied.value = true
   setTimeout(() => (copied.value = false), 2000)
 }
 
 function downloadPlantUML() {
-  const blob = new Blob([plantUMLText.value], { type: 'text/plain' })
+  const blob = new Blob([plantUMLText.value!], { type: 'text/plain' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -359,29 +361,8 @@ function downloadPlantUML() {
 </script>
 
 <style scoped>
-.toolbar-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-text-secondary);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-  white-space: nowrap;
-}
-
-.toolbar-btn:hover:not(:disabled) {
-  background: var(--color-surface-hover);
-  color: var(--color-text-primary);
-}
-
-.toolbar-maxf-input {
-  width: 64px;
+.toolbar-iv-input {
+  width: 72px;
   padding: 4px 8px;
   border-radius: 6px;
   border: 1px solid var(--color-panel-border);
@@ -392,7 +373,7 @@ function downloadPlantUML() {
   outline: none;
   transition: border-color 0.15s;
 }
-.toolbar-maxf-input:focus {
+.toolbar-iv-input:focus {
   border-color: var(--color-accent);
 }
 </style>

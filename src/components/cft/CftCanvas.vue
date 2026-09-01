@@ -7,7 +7,6 @@
     @wheel.prevent="onWheel"
     @click="onCanvasClick"
   >
-    <!-- Dot grid background -->
     <svg class="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <pattern id="cft-grid-dots" :x="pan.x % (gridSize * zoom)" :y="pan.y % (gridSize * zoom)"
@@ -18,7 +17,6 @@
       <rect width="100%" height="100%" fill="url(#cft-grid-dots)"/>
     </svg>
 
-    <!-- Main SVG canvas -->
     <svg
       class="absolute inset-0 w-full h-full"
       :style="{ cursor: isPanning ? 'grabbing' : (store.connectMode ? 'crosshair' : 'default') }"
@@ -31,143 +29,61 @@
       </defs>
 
       <g :transform="`translate(${pan.x}, ${pan.y}) scale(${zoom})`">
-        <!-- Sub-component references -->
         <g v-for="sc in store.activeSubComponents" :key="sc.id">
           <g class="cft-subcomp" @mousedown.stop="onSubCompMouseDown($event, sc)" @click.stop="onSubCompClick(sc)" @dblclick.stop="onSubCompDblClick(sc)">
-            <!-- Selection ring -->
-            <rect
-              v-if="store.selectedNodeId === sc.id"
-              :x="sc.x - 3" :y="sc.y - 3"
-              :width="sc.width + 6" :height="sc.height + 6"
-              rx="5"
-              fill="none"
-              stroke="#495057"
-              stroke-width="1.5"
-              opacity="0.4"
-              stroke-dasharray="3 2"
-            />
-            <!-- Sub-component rectangle -->
-            <rect
-              :x="sc.x" :y="sc.y"
-              :width="sc.width" :height="sc.height"
-              rx="4"
-              :fill="store.selectedNodeId === sc.id ? '#f1f3f5' : '#ffffff'"
+            <rect v-if="store.selectedNodeId === sc.id"
+              :x="sc.x - 3" :y="sc.y - 3" :width="sc.width + 6" :height="sc.height + 6"
+              rx="5" fill="none" stroke="#495057" stroke-width="1.5" opacity="0.4" stroke-dasharray="3 2"/>
+            <rect :x="sc.x" :y="sc.y" :width="sc.width" :height="sc.height"
+              rx="4" :fill="store.selectedNodeId === sc.id ? '#f1f3f5' : '#ffffff'"
               :stroke="store.selectedNodeId === sc.id ? '#212529' : '#868e96'"
-              stroke-width="1.5"
-              stroke-dasharray="6 3"
-            />
-            <!-- Stereotype -->
-            <text
-              :x="sc.x + sc.width / 2"
-              :y="sc.y + 16"
-              text-anchor="middle"
-              class="sc-stereotype-text"
-            >«sub»</text>
-            <!-- Name -->
-            <text
-              :x="sc.x + sc.width / 2"
-              :y="sc.y + sc.height / 2 + 5"
-              text-anchor="middle"
-              class="sc-name-text"
-            >{{ getSubCompName(sc) }}</text>
-            <!-- Connection points (top = outputs, distributed) -->
-            <g
-              v-for="(port, i) in getSubCompPorts(sc).outputs"
-              :key="'out-' + i"
+              stroke-width="1.5" stroke-dasharray="6 3"/>
+            <text :x="sc.x + sc.width / 2" :y="sc.y + 16" text-anchor="middle" class="sc-stereotype-text">«sub»</text>
+            <text :x="sc.x + sc.width / 2" :y="sc.y + sc.height / 2 + 5" text-anchor="middle" class="sc-name-text">{{ getSubCompName(sc) }}</text>
+
+            <g v-for="(port, i) in getSubCompPorts(sc).outputs" :key="'out-' + i"
               class="sc-port-group"
-              @mouseenter="showTooltip($event, sc, port, 'output')"
+              @mouseenter="showScTooltip($event, sc, port)"
               @mouseleave="hideTooltip"
-              @mousemove="moveTooltip"
-            >
+              @mousemove="moveTooltip">
               <circle
                 :cx="sc.x + sc.width * (i + 1) / (getSubCompPorts(sc).outputs.length + 1)"
-                :cy="sc.y"
-                r="3"
+                :cy="sc.y" r="3"
                 :fill="store.connectMode ? '#198754' : '#adb5bd'"
                 :stroke="store.connectMode ? '#198754' : '#868e96'"
-                stroke-width="1"
-                class="conn-point"
-              />
-              <!-- Hit area for hover/click -->
+                stroke-width="1" class="conn-point"/>
               <circle
                 :cx="sc.x + sc.width * (i + 1) / (getSubCompPorts(sc).outputs.length + 1)"
-                :cy="sc.y"
-                r="8"
-                fill="transparent"
-                style="cursor: crosshair"
-                @click.stop="onSubCompConnClick(sc, port.index, 'output')"
-              />
-              <!-- maxf label above output connection point -->
-              <text
-                v-if="getScMaxf(sc) !== null"
+                :cy="sc.y" r="8" fill="transparent" style="cursor: crosshair"
+                @click.stop="onSubCompConnClick(sc, port.index, 'output')"/>
+              <text v-if="getScMaxf(sc) !== null"
                 :x="sc.x + sc.width * (i + 1) / (getSubCompPorts(sc).outputs.length + 1)"
-                :y="sc.y - 6"
-                text-anchor="middle"
-                class="sc-maxf-text"
-              >M: {{ getScMaxf(sc).toFixed(4) }}</text>
+                :y="sc.y - 6" text-anchor="middle" class="sc-maxf-text">
+                M: {{ formatProb(getScMaxf(sc)!) }}
+              </text>
             </g>
-            <!-- Connection points (bottom = inputs, distributed) -->
-            <g 
-              v-for="(port, i) in getSubCompPorts(sc).inputs" 
-              :key="'in-' + i" 
-              class="sc-port-group"
-              @mouseenter="showTooltip($event, sc, port, 'input')"
-              @mouseleave="hideTooltip"
-              @mousemove="moveTooltip"
-            >
+            <g v-for="(port, i) in getSubCompPorts(sc).inputs" :key="'in-' + i" class="sc-port-group">
               <circle
                 :cx="sc.x + sc.width * (i + 1) / (getSubCompPorts(sc).inputs.length + 1)"
-                :cy="sc.y + sc.height"
-                r="3"
+                :cy="sc.y + sc.height" r="3"
                 :fill="store.connectMode ? '#198754' : '#adb5bd'"
                 :stroke="store.connectMode ? '#198754' : '#868e96'"
-                stroke-width="1"
-                class="conn-point"
-              />
-              <!-- Hit area for hover/click -->
+                stroke-width="1" class="conn-point"/>
               <circle
                 :cx="sc.x + sc.width * (i + 1) / (getSubCompPorts(sc).inputs.length + 1)"
-                :cy="sc.y + sc.height"
-                r="8"
-                fill="transparent"
-                style="cursor: crosshair"
-                @click.stop="onSubCompConnClick(sc, port.index, 'input')"
-              />
+                :cy="sc.y + sc.height" r="8" fill="transparent" style="cursor: crosshair"
+                @click.stop="onSubCompConnClick(sc, port.index, 'input')"/>
             </g>
           </g>
         </g>
 
-        <!-- Gate nodes -->
-        <CftGateNode
-          v-for="gate in store.activeGates"
-          :key="gate.id"
-          :gate="gate"
-        />
-
-        <!-- Event nodes -->
-        <CftEventNode
-          v-for="node in store.activeEvents"
-          :key="node.id"
-          :node="node"
-        />
-
-        <!-- Port nodes -->
-        <CftPortNode
-          v-for="node in [...store.activeInputPorts, ...store.activeOutputPorts]"
-          :key="node.id"
-          :node="node"
-        />
-
-        <!-- Edges (rendered on top) -->
-        <CftEdge
-          v-for="edge in store.activeEdges"
-          :key="edge.id"
-          :edge="edge"
-        />
+        <CftGateNode v-for="gate in store.activeGates" :key="gate.id" :gate="gate"/>
+        <CftEventNode v-for="node in store.activeEvents" :key="node.id" :node="node"/>
+        <CftPortNode v-for="node in [...store.activeInputPorts, ...store.activeOutputPorts]" :key="node.id" :node="node"/>
+        <CftEdge v-for="edge in store.activeEdges" :key="edge.id" :edge="edge"/>
       </g>
     </svg>
 
-    <!-- Empty state hint -->
     <transition name="fade">
       <div v-if="isEmpty" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
         <div class="empty-state">
@@ -183,14 +99,12 @@
       </div>
     </transition>
 
-    <!-- Zoom controls -->
     <div class="absolute bottom-4 right-4 flex flex-col gap-1">
       <button class="zoom-btn" @click="zoomIn" title="Zoom in">+</button>
       <button class="zoom-btn text-xs" @click="resetZoom" title="Reset zoom">⟳</button>
       <button class="zoom-btn" @click="zoomOut" title="Zoom out">−</button>
     </div>
 
-    <!-- Connect mode indicator -->
     <transition name="fade">
       <div v-if="store.connectMode" class="absolute top-4 left-1/2 -translate-x-1/2 bg-panel border border-accent-muted rounded-full px-4 py-1.5 text-xs text-accent-hover font-medium shadow-lg flex items-center gap-2">
         <span class="w-2 h-2 rounded-full bg-success animate-pulse"></span>
@@ -199,10 +113,9 @@
       </div>
     </transition>
 
-    <!-- Cursor Tooltip -->
     <div
       v-if="store.tooltip.visible"
-      class="cft-tooltip fixed pointer-events-none z-[9999] bg-panel border border-panel-border rounded shadow-xl px-2 py-1.5 min-w-[130px]"
+      class="cft-tooltip fixed pointer-events-none z-[9999] bg-panel border border-panel-border rounded-lg shadow-xl px-3 py-2 min-w-[140px]"
       :style="{ left: store.tooltip.x + 'px', top: store.tooltip.y + 'px' }"
     >
       <div class="text-[10px] text-text-muted font-bold uppercase tracking-wider mb-0.5">{{ store.tooltip.side }} Port</div>
@@ -212,13 +125,35 @@
         <span class="text-[10px] font-mono text-accent font-bold">{{ formatProb(store.tooltip.probability) }}</span>
       </div>
     </div>
+
+    <div
+      v-if="store.parentListPopup.visible"
+      class="fixed z-[10000] bg-panel border border-panel-border rounded-xl shadow-2xl overflow-hidden min-w-[200px]"
+      :style="{ left: store.parentListPopup.x + 'px', top: store.parentListPopup.y + 'px' }"
+      @click.stop
+    >
+      <div class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-text-muted border-b border-panel-border">
+        Parent Components
+      </div>
+      <div class="p-1.5">
+        <button
+          v-for="parent in store.parentListPopup.parents"
+          :key="parent.id"
+          class="w-full text-left px-3 py-2 text-[13px] text-text-primary hover:bg-surface-hover rounded-lg cursor-pointer transition-colors"
+          @click="openParentCft(parent.id)"
+        >
+          {{ parent.name }}
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useCftStore } from '../../stores/cft.js'
 import { useDiagramStore } from '../../stores/diagram.js'
+import { formatProb } from '../../utils/format.js'
 import CftGateNode from './CftGateNode.vue'
 import CftEventNode from './CftEventNode.vue'
 import CftPortNode from './CftPortNode.vue'
@@ -226,7 +161,7 @@ import CftEdge from './CftEdge.vue'
 
 const store = useCftStore()
 const diagramStore = useDiagramStore()
-const canvasEl = ref(null)
+const canvasEl = ref<HTMLElement | null>(null)
 
 const zoom = ref(1)
 const pan = reactive({ x: 0, y: 0 })
@@ -239,61 +174,52 @@ const isEmpty = computed(() => {
   return cft.nodes.length === 0 && cft.gates.length === 0 && cft.subComponents.length === 0
 })
 
-// Expose zoom globally for CFT drag handlers
 function updateGlobalZoom() {
-  window.__cftZoom = zoom.value
+  ;(window as any).__cftZoom = zoom.value
 }
 updateGlobalZoom()
 
-function getSubCompName(sc) {
+function getSubCompName(sc: { refComponentId: string; name: string }) {
   const comp = diagramStore.components.find(c => c.id === sc.refComponentId)
   return comp ? comp.name : sc.name
 }
 
-function getSubCompPorts(sc) {
+function getSubCompPorts(sc: { id: string }) {
   return store.getSubComponentPorts(sc.id)
 }
 
-function getScMaxf(sc) {
+function getScMaxf(sc: { id: string }): number | null {
   return diagramStore.slotMaxfMap?.[sc.id] ?? null
 }
 
-function formatProb(p) {
-  if (p === 0) return '0'
-  if (p < 0.0001) return p.toExponential(2)
-  return p.toFixed(4)
+function showScTooltip(e: MouseEvent, sc: { refComponentId: string }, port: { name: string }) {
+  const prob = store.evaluateOutputProbability(sc.refComponentId)
+  store.showTooltip(e.clientX + 12, e.clientY + 12, port.name, 'output', prob)
 }
 
-function showTooltip(e, sc, port, side) {
-  // Pass the current component as the parent context for hierarchical evaluation
-  const context = [{ scId: sc.id, cftId: store.activeComponentId }]
-  const prob = store.evaluateProbability(sc.refComponentId, port.id, 0, context)
-  store.showTooltip(e.clientX + 12, e.clientY + 12, port.name, side, prob)
-}
+function hideTooltip() { store.hideTooltip() }
+function moveTooltip(e: MouseEvent) { store.moveTooltip(e.clientX + 12, e.clientY + 12) }
 
-function hideTooltip() {
-  store.hideTooltip()
-}
-
-function moveTooltip(e) {
-  store.moveTooltip(e.clientX + 12, e.clientY + 12)
-}
-
-function onCanvasClick(e) {
+let didPan = false
+function onCanvasClick(e: MouseEvent) {
+  if (store.parentListPopup.visible) { store.hideParentListPopup(); return }
   if (didPan) { didPan = false; return }
-  if (e.target === canvasEl.value || e.target.tagName === 'svg' || (e.target.tagName === 'rect' && e.target.getAttribute('fill')?.startsWith('url('))) {
+  const target = e.target as HTMLElement
+  if (target === canvasEl.value || target.tagName === 'svg' || (target.tagName === 'rect' && target.getAttribute('fill')?.startsWith('url('))) {
     store.deselect()
-    if (store.connectMode) {
-      store.cancelConnect()
-    }
+    if (store.connectMode) store.cancelConnect()
   }
 }
 
-// Pan
-let panStart = null
-let didPan = false
-function onCanvasMouseDown(e) {
-  const isCanvasBg = e.target === canvasEl.value || e.target.tagName === 'svg' || (e.target.tagName === 'rect' && e.target.getAttribute('fill')?.startsWith('url('))
+function openParentCft(parentId: string) {
+  store.hideParentListPopup()
+  store.openCft(parentId)
+}
+
+let panStart: { mx: number; my: number; px: number; py: number } | null = null
+function onCanvasMouseDown(e: MouseEvent) {
+  const target = e.target as HTMLElement
+  const isCanvasBg = target === canvasEl.value || target.tagName === 'svg' || (target.tagName === 'rect' && target.getAttribute('fill')?.startsWith('url('))
   if (e.button === 1 || (e.button === 0 && e.altKey) || (e.button === 0 && isCanvasBg && !store.connectMode)) {
     isPanning.value = true
     didPan = false
@@ -303,7 +229,7 @@ function onCanvasMouseDown(e) {
     e.preventDefault()
   }
 }
-function onPanMove(e) {
+function onPanMove(e: MouseEvent) {
   if (!panStart) return
   didPan = true
   pan.x = panStart.px + (e.clientX - panStart.mx)
@@ -316,10 +242,9 @@ function onPanEnd() {
   window.removeEventListener('mouseup', onPanEnd)
 }
 
-// Zoom
-function onWheel(e) {
+function onWheel(e: WheelEvent) {
   const delta = e.deltaY > 0 ? 0.9 : 1.1
-  const rect = canvasEl.value.getBoundingClientRect()
+  const rect = canvasEl.value!.getBoundingClientRect()
   const mx = e.clientX - rect.left
   const my = e.clientY - rect.top
   const newZoom = Math.min(3, Math.max(0.2, zoom.value * delta))
@@ -328,21 +253,19 @@ function onWheel(e) {
   zoom.value = newZoom
   updateGlobalZoom()
 }
-function zoomIn()    { zoom.value = Math.min(3, zoom.value * 1.2); updateGlobalZoom() }
-function zoomOut()   { zoom.value = Math.max(0.2, zoom.value / 1.2); updateGlobalZoom() }
+function zoomIn() { zoom.value = Math.min(3, zoom.value * 1.2); updateGlobalZoom() }
+function zoomOut() { zoom.value = Math.max(0.2, zoom.value / 1.2); updateGlobalZoom() }
 function resetZoom() { zoom.value = 1; pan.x = 0; pan.y = 0; updateGlobalZoom() }
 
-// Sub-component drag
-let scDragStart = null
-function onSubCompClick(sc) {
+function onSubCompClick(sc: { id: string }) {
   if (store.connectMode) return
   store.selectNode(sc.id, 'subComponent')
 }
-function onSubCompDblClick(sc) {
+function onSubCompDblClick(sc: { refComponentId: string }) {
   if (store.connectMode) return
   store.openCft(sc.refComponentId)
 }
-function onSubCompConnClick(sc, portIndex = 0, side = 'input') {
+function onSubCompConnClick(sc: { id: string }, portIndex = 0, side = 'input') {
   if (!store.connectMode) return
   if (!store.connectSourceId) {
     store.setConnectSource(sc.id, portIndex)
@@ -350,29 +273,26 @@ function onSubCompConnClick(sc, portIndex = 0, side = 'input') {
     store.addEdge(store.connectSourceId, sc.id, store.connectSourcePort, portIndex)
   }
 }
-function onSubCompMouseDown(e, sc) {
+
+let scDragStart: { mx: number; my: number; ox: number; oy: number } | null = null
+function onSubCompMouseDown(e: MouseEvent, sc: { id: string; x: number; y: number }) {
   if (e.button !== 0 || store.connectMode) return
   store.selectNode(sc.id, 'subComponent')
-  scDragStart = {
-    mx: e.clientX,
-    my: e.clientY,
-    ox: sc.x,
-    oy: sc.y,
-  }
+  scDragStart = { mx: e.clientX, my: e.clientY, ox: sc.x, oy: sc.y }
   window.addEventListener('mousemove', onSubCompDragMove)
   window.addEventListener('mouseup', onSubCompDragEnd)
   e.preventDefault()
 }
-function onSubCompDragMove(e) {
+function onSubCompDragMove(e: MouseEvent) {
   if (!scDragStart) return
-  const z = window.__cftZoom ?? 1
+  const z = (window as any).__cftZoom ?? 1
   const dx = (e.clientX - scDragStart.mx) / z
   const dy = (e.clientY - scDragStart.my) / z
   const sc = store.activeSubComponents.find(s => s.id === store.selectedNodeId)
   if (sc) {
-    store.updateSubComponent(sc.id, { 
-      x: Math.round((scDragStart.ox + dx) / 30) * 30, 
-      y: Math.round((scDragStart.oy + dy) / 30) * 30 
+    store.updateSubComponent(sc.id, {
+      x: Math.round((scDragStart.ox + dx) / 30) * 30,
+      y: Math.round((scDragStart.oy + dy) / 30) * 30,
     })
   }
 }
@@ -382,95 +302,33 @@ function onSubCompDragEnd() {
   window.removeEventListener('mouseup', onSubCompDragEnd)
 }
 
-// Keyboard shortcuts
-function onKeyDown(e) {
+function onKeyDown(e: KeyboardEvent) {
   if (e.key === 'Delete' || e.key === 'Backspace') {
-    if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT') return
+    const el = document.activeElement as HTMLElement
+    if (el.tagName === 'INPUT' || el.tagName === 'SELECT') return
     store.removeSelected()
   }
   if (e.key === 'Escape') {
-    if (store.connectMode) {
-      store.cancelConnect()
-    } else {
-      store.deselect()
-    }
+    if (store.parentListPopup.visible) { store.hideParentListPopup(); return }
+    if (store.connectMode) store.cancelConnect()
+    else store.deselect()
   }
 }
 
 onMounted(() => window.addEventListener('keydown', onKeyDown))
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeyDown)
-  delete window.__cftZoom
+  delete (window as any).__cftZoom
 })
 </script>
 
 <style scoped>
-.cft-canvas {
-  min-height: 0;
-}
-.empty-state {
-  text-align: center;
-  padding: 32px;
-  border-radius: 16px;
-  border: 1px dashed #dee2e6;
-  background: rgba(248, 249, 250, 0.8);
-}
-.zoom-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  border: 1px solid var(--color-panel-border);
-  background: var(--color-panel);
-  color: var(--color-text-secondary);
-  font-size: 16px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-}
-.zoom-btn:hover {
-  background: var(--color-surface-hover);
-  color: var(--color-text-primary);
-  border-color: var(--color-accent-muted);
-}
-.sc-stereotype-text {
-  font-size: 9px;
-  font-style: italic;
-  fill: var(--color-text-muted);
-  font-family: var(--font-sans);
-  pointer-events: none;
-  user-select: none;
-}
-.sc-name-text {
-  font-size: 12px;
-  font-weight: 600;
-  fill: var(--color-text-primary);
-  font-family: var(--font-sans);
-  pointer-events: none;
-  user-select: none;
-}
-.sc-maxf-text {
-  font-size: 9px;
-  font-weight: 500;
-  fill: var(--color-success);
-  font-family: var(--font-mono, monospace);
-  pointer-events: none;
-  user-select: none;
-}
-.conn-point {
-  cursor: crosshair;
-  transition: r 0.15s;
-}
-.conn-point:hover {
-  r: 5;
-}
-.cft-subcomp {
-  cursor: grab;
-}
-.cft-subcomp:active {
-  cursor: grabbing;
-}
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
+.cft-canvas { min-height: 0; }
+.sc-stereotype-text { font-size: 9px; font-style: italic; fill: var(--color-text-muted); font-family: var(--font-sans); pointer-events: none; user-select: none; }
+.sc-name-text { font-size: 12px; font-weight: 600; fill: var(--color-text-primary); font-family: var(--font-sans); pointer-events: none; user-select: none; }
+.sc-maxf-text { font-size: 9px; font-weight: 500; fill: var(--color-success); font-family: var(--font-mono, monospace); pointer-events: none; user-select: none; }
+.conn-point { cursor: crosshair; transition: r 0.15s; }
+.conn-point:hover { r: 5; }
+.cft-subcomp { cursor: grab; }
+.cft-subcomp:active { cursor: grabbing; }
 </style>
