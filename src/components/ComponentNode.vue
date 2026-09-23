@@ -1,6 +1,5 @@
 <template>
   <g @mousedown.stop="onMouseDown" @click.stop="onClick" @dblclick.stop="onDblClick" class="component-node">
-    <!-- Shadow / glow for selected -->
     <rect
       v-if="isSelected"
       :x="comp.x - 3" :y="comp.y - 3"
@@ -12,7 +11,6 @@
       filter="url(#glow)"
     />
 
-    <!-- Main rectangle -->
     <rect
       :x="comp.x" :y="comp.y"
       :width="comp.width" :height="comp.height"
@@ -21,7 +19,6 @@
       stroke-width="1.5"
     />
 
-    <!-- UML component icon -->
     <rect :x="comp.x + comp.width - 20" :y="comp.y + 7" width="14" height="18"
       :fill="isSelected ? '#f1f3f5' : '#ffffff'"
       :stroke="isSelected ? '#212529' : '#343a40'" stroke-width="1.2"/>
@@ -31,11 +28,7 @@
     <rect :x="comp.x + comp.width - 24" :y="comp.y + 18" width="8" height="4"
       :fill="isSelected ? '#f1f3f5' : '#ffffff'"
       :stroke="isSelected ? '#212529' : '#343a40'" stroke-width="1.2"/>
-
-    <!-- Stereotype label -->
     <text :x="comp.x + comp.width / 2" :y="comp.y + 22" text-anchor="middle" class="stereotype-text">«component»</text>
-
-    <!-- Component name -->
     <text
       :x="comp.x + comp.width / 2"
       :y="hasChildren ? comp.y + 36 : comp.y + comp.height / 2 + 5"
@@ -44,7 +37,6 @@
       :class="{ 'comp-name-selected': isSelected }"
     >{{ comp.name }}</text>
 
-    <!-- Separator line under header when has children -->
     <line
       v-if="hasChildren"
       :x1="comp.x" :y1="comp.y + 44"
@@ -54,7 +46,6 @@
       opacity="0.5"
     />
 
-    <!-- P(E_F) — computed from CFT via core engine (read-only) -->
     <text
       v-if="pFailure !== null"
       :x="comp.x + comp.width / 2"
@@ -63,7 +54,6 @@
       class="prob-text"
     >P={{ formatProb(pFailure) }}</text>
 
-    <!-- Children sub-components (rendered inside) -->
     <ComponentNode
       v-for="child in children"
       :key="child.id"
@@ -71,7 +61,6 @@
       :parentBounds="childBounds"
     />
 
-    <!-- Resize handles -->
     <template v-if="isSelected">
       <rect
         v-for="handle in resizeHandles"

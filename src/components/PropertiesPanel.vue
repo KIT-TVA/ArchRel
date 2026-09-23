@@ -1,3 +1,4 @@
+<!-- AI GENERATED CODE-->
 <template>
   <transition name="panel-slide">
     <div v-if="hasSelection" class="properties-panel glass border-l border-panel-border flex flex-col w-64 shrink-0 z-10 overflow-y-auto">
@@ -8,7 +9,6 @@
         </span>
       </div>
 
-      <!-- Component properties -->
       <template v-if="store.selectedType === 'component' && selectedComp">
         <div class="p-4 flex flex-col gap-4">
           <div class="field-group">
@@ -50,7 +50,6 @@
             </div>
           </div>
 
-          <!-- P(E_F) — read-only, computed from CFT via core engine -->
           <div class="field-group" v-if="pFailure !== null">
             <label class="field-label">P(E<sub>F</sub>) — failure probability</label>
             <div class="field-readonly font-mono">{{ formatProb(pFailure) }}</div>
@@ -91,7 +90,6 @@
         </div>
       </template>
 
-      <!-- Interface properties -->
       <template v-if="store.selectedType === 'interface' && selectedIface">
         <div class="p-4 flex flex-col gap-4">
           <div class="field-group">
@@ -134,6 +132,7 @@
     </div>
   </transition>
 </template>
+<!-- AI GENERATED CODE-->
 
 <script setup lang="ts">
 import { computed } from 'vue'

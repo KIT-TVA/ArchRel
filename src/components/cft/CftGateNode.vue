@@ -1,3 +1,4 @@
+<!--AI Generated Code-->
 <template>
   <g class="cft-gate-node"
     @mousedown.stop="onMouseDown"
@@ -41,6 +42,7 @@
     </template>
   </g>
 </template>
+<!--AI Generated Code-->
 
 <script setup lang="ts">
 import { computed } from 'vue'

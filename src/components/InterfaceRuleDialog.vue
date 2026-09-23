@@ -1,3 +1,4 @@
+<!--AI GENERATED CODE-->
 <template>
   <Teleport to="body">
     <div
@@ -85,6 +86,7 @@
     </div>
   </Teleport>
 </template>
+<!--AI GENERATED CODE-->
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'

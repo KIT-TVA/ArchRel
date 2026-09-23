@@ -1,6 +1,5 @@
 <template>
   <g v-if="reqComp && provComp" class="connection-group" @click.stop="onClick">
-    <!-- Line segments through waypoints -->
     <template v-for="(seg, i) in segments" :key="'seg-' + i">
       <line
         :x1="seg.x1" :y1="seg.y1"
@@ -9,7 +8,6 @@
         stroke-width="2"
         stroke-linecap="round"
       />
-      <!-- Invisible fat hit area for adding waypoints via double-click -->
       <line
         :x1="seg.x1" :y1="seg.y1"
         :x2="seg.x2" :y2="seg.y2"
@@ -19,8 +17,6 @@
         @dblclick.stop="addWaypointOnSegment($event, i)"
       />
     </template>
-
-    <!-- Lollipop at midpoint of the whole path -->
     <path
       :d="socketPath"
       fill="none"
@@ -36,7 +32,6 @@
       stroke-width="2"
     />
 
-    <!-- Waypoint handles (visible when selected) -->
     <template v-if="isSelected">
       <circle
         v-for="(wp, i) in waypoints"
@@ -52,7 +47,6 @@
       />
     </template>
 
-    <!-- Interface name label below the lollipop -->
     <text
       :x="lollipopMid.x"
       :y="lollipopMid.y + 22"
@@ -61,7 +55,6 @@
       :class="{ 'selected-label': isSelected }"
     >{{ iface.name }}</text>
 
-    <!-- Selection highlight ring -->
     <circle v-if="isSelected" :cx="lollipopMid.x" :cy="lollipopMid.y" r="18" fill="none" stroke="#495057" stroke-width="1" opacity="0.3" stroke-dasharray="3 2"/>
   </g>
 </template>

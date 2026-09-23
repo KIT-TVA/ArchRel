@@ -1,3 +1,4 @@
+<!-- AI GENERATED CODE-->
 <template>
   <div class="toolbar glass border-b border-panel-border flex items-center gap-2 px-4 h-14 shrink-0 z-20">
     <div class="flex items-center gap-2 mr-4">
@@ -243,6 +244,7 @@
     @cancel="showIfaceRuleDialog = false"
   />
 </template>
+<!-- AI GENERATED CODE-->
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'

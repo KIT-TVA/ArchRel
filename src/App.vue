@@ -1,3 +1,15 @@
+<!-- 
+AI Disclaimer:
+For parts of this project, AI-assisted code generation was used. 
+It was used mainly to generate UI/CSS code for Vue components, and to assist with TypeScript code in Vue components.
+The AI tool used was Claude Opus 4.8, a large language model developed by Anthropic.
+
+The parts where AI was used are marked with comments in the code.
+
+-->
+
+
+
 <template>
   <div class="flex flex-col h-full">
     <AppToolbar :zoom="canvasZoom"/>
@@ -6,10 +18,8 @@
       <PropertiesPanel/>
     </div>
 
-    <!-- CFT Editor (full-screen overlay) -->
     <CftEditorModal />
 
-    <!-- IV prompt — mandatory on first load -->
     <Teleport to="body">
       <div
         v-if="store.iv === null"
@@ -46,7 +56,6 @@
       </div>
     </Teleport>
 
-    <!-- Component creation dialog -->
     <Teleport to="body">
       <div
         v-if="store.pendingComponentId"
